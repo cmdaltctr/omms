@@ -226,7 +226,7 @@ describe("GET /api/memorisations", () => {
     expect(rows.map((row: any) => row.id)).toEqual([second.id, first.id]);
     expect(rows[0]).toMatchObject({
       id: second.id,
-      content: "Topic: release\nNext: tag it",
+      content: "release\n\n## Next\ntag it",
       host: "pi",
       kind: "snapshot",
     });

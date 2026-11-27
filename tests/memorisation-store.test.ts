@@ -267,7 +267,7 @@ describe("memorise and recall through the real store", () => {
       expect(second.replaced).toBe(true);
 
       const recalled: any = await operation({ mode: "recall", query: first.id }, tag);
-      expect(recalled.matches[0].content).toBe("Topic: release\nDone: tagged");
+      expect(recalled.matches[0].content).toBe("release\n\n## Done\ntagged");
 
       const other = await memorise({ topic: "release" }, tag, "session-2");
       expect(other.id).not.toBe(first.id);
@@ -291,7 +291,7 @@ describe("memorise and recall through the real store", () => {
       }
       const recalled: any = await operation({ mode: "recall", query: first.id }, tag);
       expect(recalled.success).toBe(true);
-      expect(recalled.matches[0].content).toBe("Topic: release\nNext: tag it");
+      expect(recalled.matches[0].content).toBe("release\n\n## Next\ntag it");
     });
   }, 60_000);
 
@@ -312,7 +312,7 @@ describe("memorise and recall through the real store", () => {
       }
       const recalled: any = await operation({ mode: "recall", query: first.id }, tag);
       expect(recalled.success).toBe(true);
-      expect(recalled.matches[0].content).toBe("Topic: release\nNext: tag it");
+      expect(recalled.matches[0].content).toBe("release\n\n## Next\ntag it");
     });
   }, 60_000);
 

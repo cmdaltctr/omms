@@ -76,6 +76,10 @@ interface OmmsConfig extends Partial<profileLearning.ProfileLearningSettings> {
   memorisationRepeat?: memorisation.MemorisationSettings["memorisationRepeat"];
   /** Experimental: rerank text recall with the reranker server. Global config only. */
   memorisationRerank?: boolean;
+  /** Note length presets in characters (Short < Medium < Long). Global config only. */
+  memorisationShortSize?: number;
+  memorisationMediumSize?: number;
+  memorisationLongSize?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
   autoCaptureEnabled?: boolean;
@@ -233,10 +237,7 @@ const DEFAULTS: Required<
   rerankerEnabled: false,
   rerankerTimeoutMs: RERANKER_TIMEOUT_DEFAULT_MS,
   retrievalMaxTokens: 2000,
-  memorisationMaxSize: 2000,
-  memorisationSizeUnit: "characters",
-  memorisationRepeat: "add",
-  memorisationRerank: false,
+  ...memorisation.MEMORISATION_DEFAULTS,
   injectProfile: true,
   // omms since the tag prefix migration: new memories carry the fork's
   // identity end to end, and the startup gate (tag-prefix-migration.ts)

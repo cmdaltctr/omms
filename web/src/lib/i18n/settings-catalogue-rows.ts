@@ -57,7 +57,9 @@ export const settingsCatalogueRowText = {
   ],
   "Add a bonus for word matches": ["为词语匹配加分", "إضافة مكافأة لتطابق الكلمات"],
   "4 seconds": ["4 秒", "4 ثوانٍ"],
+  "800 characters": ["800 个字符", "800 حرف"],
   "2,000 characters": ["2,000 个字符", "2,000 حرف"],
+  "5,000 characters": ["5,000 个字符", "5,000 حرف"],
   Characters: ["字符", "الأحرف"],
   "Add a new one": ["新增一条", "إضافة واحدة جديدة"],
   // Names and descriptions on the Settings page.

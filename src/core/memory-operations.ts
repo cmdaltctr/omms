@@ -1,5 +1,6 @@
 import { memoryClient, type MemoryScope } from "../services/client.js";
 import { runMemorise, runRecall } from "./memorisation-operations.js";
+import { noteLengthFor } from "./memorisation.js";
 import { memorisationSettingsFrom } from "./memorisation-settings.js";
 import { linkedSettingsFrom } from "../services/linked-search.js";
 import { getLanguageName } from "../services/language-detector.js";
@@ -150,6 +151,7 @@ export async function executeMemoryOperation(
         return {
           success: true,
           message: "Memory System Usage Guide",
+          memorisation: noteLengthFor(memorisationSettingsFrom(context.config.CONFIG)),
           commands: [
             {
               command: "add",

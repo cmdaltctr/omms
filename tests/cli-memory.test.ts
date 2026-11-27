@@ -169,12 +169,43 @@ scenario = { explicit, first, second, byId, byText, missing, rows };
     expect(second).toMatchObject({ success: true, replaced: true, id: first.id });
 
     const byId = onlyJson(scenario.byId);
-    expect(byId.matches[0].content).toContain("Retry logic");
+    expect(byId.matches[0].content).toBe("Auth\n\n## Doing\nRetry logic");
     expect(byId.matches[0].content).not.toContain("Token refresh");
     expect(onlyJson(scenario.byText).count).toBeGreaterThan(0);
     expect(scenario.missing.code).toBe(1);
     // Memorisations stay out of the normal listing.
     expect(scenario.rows).toEqual([]);
+  });
+});
+
+describe("om-memory-system memory help", () => {
+  it("reports the note length from the global config", async () => {
+    const { home, run } = createHarness();
+    const configDir = join(home, ".config", "omms");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "omms.jsonc"),
+      JSON.stringify({
+        storagePath: join(home, "store"),
+        embeddingDimensions: 4,
+        memorisationShortSize: 1000,
+        memorisationMaxSize: 1000,
+      })
+    );
+    const scenario = await run(`scenario = { help: await cli(["help"]) };`);
+    const help = onlyJson(scenario.help);
+    expect(help.memorisation).toEqual({ length: "short", maxSize: 1000, unit: "characters" });
+  });
+
+  it("reports medium for a config that sets no cap", async () => {
+    const { home, run } = createHarness();
+    writeGlobalConfig(home);
+    const scenario = await run(`scenario = { help: await cli(["help"]) };`);
+    expect(onlyJson(scenario.help).memorisation).toEqual({
+      length: "medium",
+      maxSize: 2000,
+      unit: "characters",
+    });
   });
 });
 

@@ -414,6 +414,13 @@ export const CONFIG_TEMPLATE = `{
   // Tokens are estimated with the same rule as retrievalMaxTokens.
   // "memorisationMaxSize": 2000,
   // "memorisationSizeUnit": "characters", // or "tokens"
+  // Note length presets in characters, 100 to 20,000 each. Short must be less
+  // than Medium, and Medium less than Long, each by at least one token (4
+  // characters is always enough). A size cap that equals a preset in
+  // its unit is reported as that length (tokens are the characters divided by 4).
+  // "memorisationShortSize": 800,
+  // "memorisationMediumSize": 2000,
+  // "memorisationLongSize": 5000,
   // Experimental: rerank text recall with the reranker server of the Memory
   // settings (needs its URL and model; default false).
   // "memorisationRerank": false,

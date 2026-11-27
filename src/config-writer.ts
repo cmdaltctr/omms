@@ -18,7 +18,7 @@ import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./services/injection-options-c
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./services/request-timeouts.js";
 import {
   checkMemorisationSettingsEdits,
-  memorisationSettingsFrom,
+  storedMemorisationSettings,
 } from "./core/memorisation-settings.js";
 import {
   isProfileLearningKey,
@@ -105,7 +105,11 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (isProfileLearningKey(key)) return isValidProfileLearningEdit(key, value);
   if (key === "memorisationSizeUnit") return value === "characters" || value === "tokens";
   if (key === "memorisationRerank") return typeof value === "boolean";
+  // The repeat, size and preset rules run in checkMemorisationSettingsEdits.
   if (key === "memorisationRepeat" || key === "memorisationMaxSize") return true;
+  if (["memorisationShortSize", "memorisationMediumSize", "memorisationLongSize"].includes(key)) {
+    return true;
+  }
   // The opening context query: null removes it; an empty query means no opening search.
   if (key === "openingContextQuery") {
     return (
@@ -319,7 +323,7 @@ export async function writeGlobalConfigKeys(
     }
     checkMemorisationSettingsEdits(
       applied,
-      memorisationSettingsFrom(current as Record<string, unknown>)
+      storedMemorisationSettings(current as Record<string, unknown>)
     );
     for (const [key, value] of Object.entries(applied)) {
       // A nested identifier maps to its JSONC leaf path, so compaction.enabled

@@ -7,6 +7,7 @@ import { Checkbox } from "$lib/components/ui/checkbox";
 import { formatDate } from "$lib/format";
 import { hostName } from "$lib/host-label";
 import { useI18n } from "$lib/i18n";
+import { renderMarkdown } from "$lib/markdown";
 import { memorisationTitle, type Memorisation } from "$lib/memorisation-model";
 
 type Copy = "idle" | "done" | "failed";
@@ -115,13 +116,12 @@ export function MemorisationRow({
       </div>
       {open ? (
         <div id={textId} className="rounded-lg border border-border bg-muted p-3">
-          <pre
+          <div
             aria-label={t("memorisation-text-label", { id: item.id })}
-            className="max-h-96 overflow-y-auto font-sans text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
+            className="markdown-content max-h-96 max-w-none overflow-y-auto text-sm [overflow-wrap:anywhere]"
             dir="auto"
-          >
-            {item.content}
-          </pre>
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content) }}
+          />
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">

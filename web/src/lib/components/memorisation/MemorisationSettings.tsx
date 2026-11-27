@@ -1,11 +1,13 @@
 import { Loader } from "lucide-react";
+import { PresetEditor } from "./PresetEditor";
 import { RepeatChoice } from "./RepeatChoice";
 import { RerankSwitch } from "./RerankSwitch";
 import { SizeCapForm } from "./SizeCapForm";
+import { useMemorisationConfirm } from "@/hooks/useMemorisationConfirm";
 import { useMemorisationSettings, type SettingsStatus } from "@/hooks/useMemorisationSettings";
+import { statusProblem } from "./status-problem";
 import { Callout } from "$lib/components/skills/Callout";
 import { useI18n } from "$lib/i18n";
-import { SIZE_RANGE } from "$lib/memorisation-model";
 
 const SECTION = "space-y-3 rounded-xl border border-border bg-card p-4";
 
@@ -14,36 +16,21 @@ const SAVED: Partial<Record<SettingsStatus["kind"], string>> = {
   "repeat-saved": "memorisation-repeat-saved",
   "size-saved": "memorisation-size-saved",
   "rerank-saved": "memorisation-rerank-saved",
+  "presets-saved": "memorisation-preset-saved",
 };
 
 /** The two global settings of memorisation: what a repeat does, and the size cap. */
 export function MemorisationSettings() {
   const { t, language } = useI18n();
   const settings = useMemorisationSettings();
+  const confirm = useMemorisationConfirm(settings);
   const { status } = settings;
   const changed =
     settings.loaded &&
     (settings.sizeText.trim() !== String(settings.savedSize ?? "") ||
       settings.unit !== settings.savedUnit);
 
-  const problem = (() => {
-    if (!status) return null;
-    if (status.kind === "out-of-range") {
-      const { min, max } = SIZE_RANGE[status.unit];
-      const number = new Intl.NumberFormat(language);
-      return t(`memorisation-range-${status.unit}`, {
-        min: number.format(min),
-        max: number.format(max),
-      });
-    }
-    if (status.kind === "load-failed") return t("memorisation-settings-load-failed");
-    if (status.kind === "stale") return t("memorisation-settings-stale");
-    if (status.kind === "rerank-failed") {
-      return status.reason || t("memorisation-settings-failed");
-    }
-    if (status.kind === "failed") return t("memorisation-settings-failed");
-    return null;
-  })();
+  const problem = statusProblem(status, t, language);
 
   return (
     <section aria-labelledby="memorisation-settings" className="space-y-3">
@@ -71,7 +58,7 @@ export function MemorisationSettings() {
           <RepeatChoice
             value={settings.repeat}
             disabled={settings.busy || !settings.loaded}
-            onChoose={(value) => void settings.chooseRepeat(value)}
+            onChoose={confirm.askRepeat}
           />
         </div>
         <div className={SECTION}>
@@ -80,11 +67,18 @@ export function MemorisationSettings() {
           <SizeCapForm
             sizeText={settings.sizeText}
             unit={settings.unit}
+            presets={settings.presets}
             busy={settings.busy || !settings.loaded}
             changed={changed}
             onSize={settings.setSizeText}
-            onUnit={settings.setUnit}
-            onSave={() => void settings.saveSize()}
+            onPreset={settings.choosePreset}
+            onUnit={settings.chooseUnit}
+            onSave={confirm.askSize}
+          />
+          <PresetEditor
+            presets={settings.presets}
+            busy={settings.busy || !settings.loaded}
+            onSave={confirm.askPresets}
           />
         </div>
         <div className={SECTION}>
@@ -92,10 +86,11 @@ export function MemorisationSettings() {
             value={settings.rerank}
             ready={settings.rerankerReady}
             busy={settings.busy || !settings.loaded}
-            onChange={(value) => void settings.chooseRerank(value)}
+            onChange={confirm.askRerank}
           />
         </div>
       </div>
+      {confirm.dialog}
     </section>
   );
 }

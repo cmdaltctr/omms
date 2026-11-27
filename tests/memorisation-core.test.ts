@@ -7,20 +7,25 @@ import {
   memorisationCapError,
   memorisationCapIsValid,
   memorisationId,
+  memorisationPresetsError,
   memorisationSize,
   memorisationSizeError,
   memorisationSizeRange,
   parseTagGroups,
+  noteLengthFor,
   parseTagList,
   pickRecallMatches,
+  presetSizeIn,
   snapshotText,
   visibleTags,
   withProjectLabel,
 } from "../src/core/memorisation.js";
+import { buildTolerant } from "../src/services/config-problems.js";
 import {
   checkMemorisationSettingsEdits,
   MEMORISATION_DEFAULTS,
   memorisationSettingsFrom,
+  removeMemorisationProjectOverrides,
 } from "../src/core/memorisation-settings.js";
 
 function randomForBase36(value: string): number {
@@ -106,7 +111,7 @@ describe("memorisation IDs", () => {
 });
 
 describe("session snapshots", () => {
-  it("renders every field in Topic, Done, Doing, Next order", () => {
+  it("writes the topic as the first line, then Done, Doing and Next sections", () => {
     expect(
       snapshotText({
         topic: "memorisation proposal",
@@ -115,14 +120,25 @@ describe("session snapshots", () => {
         next: "wait for approval",
       })
     ).toBe(
-      "Topic: memorisation proposal\nDone: proposal written\nDoing: validating specs\nNext: wait for approval"
+      "memorisation proposal\n\n## Done\nproposal written\n\n## Doing\nvalidating specs\n\n## Next\nwait for approval"
     );
+  });
+
+  it("puts a bullet list below its heading, never on the label line", () => {
+    const text = snapshotText({ topic: "release", done: "- tests written\n- docs updated" });
+    expect(text).toBe("release\n\n## Done\n- tests written\n- docs updated");
+    expect(text).not.toContain("Done: -");
+    expect(text.split("\n")).toContain("## Done");
+  });
+
+  it("starts with the first section when there is no topic", () => {
+    expect(snapshotText({ next: "run ci:local" })).toBe("## Next\nrun ci:local");
   });
 
   it("omits empty fields and trims retained text", () => {
     expect(
       snapshotText({ topic: "  release plan  ", done: "", doing: "   ", next: "publish" })
-    ).toBe("Topic: release plan\nNext: publish");
+    ).toBe("release plan\n\n## Next\npublish");
     expect(snapshotText({})).toBe("");
   });
 });
@@ -217,6 +233,9 @@ describe("memorisation settings", () => {
       memorisationSizeUnit: "characters",
       memorisationRepeat: "add",
       memorisationRerank: false,
+      memorisationShortSize: 800,
+      memorisationMediumSize: 2000,
+      memorisationLongSize: 5000,
     });
     expect(memorisationSettingsFrom({})).toEqual(MEMORISATION_DEFAULTS);
   });
@@ -233,6 +252,9 @@ describe("memorisation settings", () => {
       memorisationSizeUnit: "tokens",
       memorisationRepeat: "replace",
       memorisationRerank: false,
+      memorisationShortSize: 800,
+      memorisationMediumSize: 2000,
+      memorisationLongSize: 5000,
     });
     expect(() =>
       memorisationSettingsFrom({ memorisationMaxSize: 24, memorisationSizeUnit: "tokens" })
@@ -388,5 +410,244 @@ describe("project label", () => {
 
   it("does not repeat a label the caller already gave", () => {
     expect(withProjectLabel(["memorisation", "omrs"], "OMRS")).toEqual(["memorisation", "omrs"]);
+  });
+});
+
+describe("note length presets", () => {
+  const defaults = { ...MEMORISATION_DEFAULTS };
+  const lengthOf = (memorisationMaxSize: number, memorisationSizeUnit: "characters" | "tokens") =>
+    noteLengthFor({ ...defaults, memorisationMaxSize, memorisationSizeUnit });
+
+  it("converts a preset to tokens with a round-up of a quarter", () => {
+    expect(presetSizeIn(800, "characters")).toBe(800);
+    expect(presetSizeIn(800, "tokens")).toBe(200);
+    expect(presetSizeIn(2000, "tokens")).toBe(500);
+    expect(presetSizeIn(5000, "tokens")).toBe(1250);
+    expect(presetSizeIn(1001, "tokens")).toBe(251);
+  });
+
+  it("reports the default cap as medium, 2000 characters", () => {
+    expect(noteLengthFor(defaults)).toEqual({
+      length: "medium",
+      maxSize: 2000,
+      unit: "characters",
+    });
+  });
+
+  it("matches each default preset in characters", () => {
+    expect(lengthOf(800, "characters").length).toBe("short");
+    expect(lengthOf(2000, "characters").length).toBe("medium");
+    expect(lengthOf(5000, "characters").length).toBe("long");
+  });
+
+  it("matches each default preset in tokens", () => {
+    expect(lengthOf(200, "tokens")).toEqual({ length: "short", maxSize: 200, unit: "tokens" });
+    expect(lengthOf(500, "tokens").length).toBe("medium");
+    expect(lengthOf(1250, "tokens").length).toBe("long");
+  });
+
+  it("calls any other valid cap custom", () => {
+    expect(lengthOf(3000, "characters")).toEqual({
+      length: "custom",
+      maxSize: 3000,
+      unit: "characters",
+    });
+    expect(lengthOf(201, "tokens").length).toBe("custom");
+  });
+
+  it("matches an edited preset in characters and in tokens", () => {
+    const edited = { ...defaults, memorisationShortSize: 1000 };
+    expect(noteLengthFor({ ...edited, memorisationMaxSize: 1000 }).length).toBe("short");
+    expect(
+      noteLengthFor({ ...edited, memorisationMaxSize: 250, memorisationSizeUnit: "tokens" }).length
+    ).toBe("short");
+    // The old default no longer names a preset.
+    expect(noteLengthFor({ ...edited, memorisationMaxSize: 800 }).length).toBe("custom");
+  });
+
+  it("accepts the defaults and the range limits", () => {
+    expect(memorisationPresetsError(defaults)).toBeNull();
+    expect(
+      memorisationPresetsError({
+        memorisationShortSize: 100,
+        memorisationMediumSize: 101,
+        memorisationLongSize: 20000,
+      })
+    ).toBeNull();
+  });
+
+  it("refuses values outside 100 to 20000 and non-whole numbers, naming the key", () => {
+    for (const bad of [99, 20001, 1.5, "800", null, undefined, Number.NaN]) {
+      expect(memorisationPresetsError({ ...defaults, memorisationShortSize: bad })).toBe(
+        "memorisationShortSize must be a whole number from 100 to 20000 characters"
+      );
+    }
+    expect(memorisationPresetsError({ ...defaults, memorisationMediumSize: 99 })).toBe(
+      "memorisationMediumSize must be a whole number from 100 to 20000 characters"
+    );
+    expect(memorisationPresetsError({ ...defaults, memorisationLongSize: 20001 })).toBe(
+      "memorisationLongSize must be a whole number from 100 to 20000 characters"
+    );
+  });
+
+  it("refuses presets that are not in order, including equal values", () => {
+    expect(memorisationPresetsError({ ...defaults, memorisationShortSize: 3000 })).toBe(
+      "Short must be less than Medium"
+    );
+    expect(memorisationPresetsError({ ...defaults, memorisationShortSize: 2000 })).toBe(
+      "Short must be less than Medium"
+    );
+    expect(memorisationPresetsError({ ...defaults, memorisationMediumSize: 6000 })).toBe(
+      "Medium must be less than Long"
+    );
+    expect(memorisationPresetsError({ ...defaults, memorisationMediumSize: 5000 })).toBe(
+      "Medium must be less than Long"
+    );
+  });
+
+  it("refuses presets that are a few characters apart and so share one token value", () => {
+    // 101 and 104 characters are both about 26 tokens, so the Tokens unit could not tell them apart.
+    expect(
+      memorisationPresetsError({
+        ...defaults,
+        memorisationShortSize: 101,
+        memorisationMediumSize: 104,
+      })
+    ).toBe("Short and Medium must differ by at least one token: both are about 26 tokens");
+    expect(
+      memorisationPresetsError({
+        ...defaults,
+        memorisationMediumSize: 2001,
+        memorisationLongSize: 2004,
+      })
+    ).toBe("Medium and Long must differ by at least one token: both are about 501 tokens");
+    // One token apart is enough.
+    expect(
+      memorisationPresetsError({
+        ...defaults,
+        memorisationShortSize: 104,
+        memorisationMediumSize: 105,
+      })
+    ).toBeNull();
+  });
+});
+
+describe("note length preset settings", () => {
+  const current = { ...MEMORISATION_DEFAULTS };
+
+  it("reads configured presets and falls back to the defaults", () => {
+    expect(memorisationSettingsFrom({ memorisationShortSize: 1000 })).toMatchObject({
+      memorisationShortSize: 1000,
+      memorisationMediumSize: 2000,
+      memorisationLongSize: 5000,
+    });
+  });
+
+  it("rejects an invalid or out-of-order configured preset", () => {
+    expect(() => memorisationSettingsFrom({ memorisationShortSize: 50 })).toThrow(
+      "Invalid memorisationShortSize config (accepted: whole numbers from 100 to 20000 characters)"
+    );
+    expect(() => memorisationSettingsFrom({ memorisationLongSize: 1.5 })).toThrow(
+      "Invalid memorisationLongSize config (accepted: whole numbers from 100 to 20000 characters)"
+    );
+    expect(() => memorisationSettingsFrom({ memorisationShortSize: 3000 })).toThrow(
+      "Invalid memorisationShortSize config (accepted: whole numbers from 100 to 20000 characters, less than memorisationMediumSize)"
+    );
+  });
+
+  it("names the preset the config file breaks, with its rule, when the file loads", () => {
+    const load = (config: Record<string, unknown>) =>
+      buildTolerant(
+        (file: Record<string, unknown>) => memorisationSettingsFrom(file),
+        config,
+        () => undefined
+      );
+    const only = (config: Record<string, unknown>) => {
+      const { problems, config: loaded } = load(config);
+      expect(problems).toHaveLength(1);
+      return { problem: problems[0]!, loaded };
+    };
+
+    // Only Medium is set and it is below the default Short, so Medium is the broken value.
+    const below = only({ memorisationMediumSize: 700 });
+    expect(below.problem.key).toBe("memorisationMediumSize");
+    expect(below.problem.accepted).toBe(
+      "whole numbers from 100 to 20000 characters, more than memorisationShortSize"
+    );
+    expect(below.loaded.memorisationMediumSize).toBe(2000);
+
+    const range = only({ memorisationLongSize: 50 });
+    expect(range.problem.key).toBe("memorisationLongSize");
+    expect(range.problem.accepted).toBe("whole numbers from 100 to 20000 characters");
+
+    // Both of the pair are set: the lower one is named, whatever the order of keys in the file.
+    for (const config of [
+      { memorisationShortSize: 3000, memorisationMediumSize: 2500 },
+      { memorisationMediumSize: 2500, memorisationShortSize: 3000 },
+    ]) {
+      const pair = only(config);
+      expect(pair.problem.key).toBe("memorisationShortSize");
+      expect(pair.problem.accepted).toBe(
+        "whole numbers from 100 to 20000 characters, less than memorisationMediumSize"
+      );
+      expect(pair.loaded).toMatchObject({
+        memorisationShortSize: 800,
+        memorisationMediumSize: 2500,
+      });
+    }
+
+    const tie = only({ memorisationShortSize: 1997 });
+    expect(tie.problem.key).toBe("memorisationShortSize");
+    expect(tie.problem.accepted).toBe(
+      "whole numbers from 100 to 20000 characters, at least one token less than memorisationMediumSize"
+    );
+  });
+
+  it("accepts an edit that keeps the presets in order, merged with the current values", () => {
+    expect(() =>
+      checkMemorisationSettingsEdits({ memorisationShortSize: 1000 }, current)
+    ).not.toThrow();
+    expect(() =>
+      checkMemorisationSettingsEdits(
+        {
+          memorisationShortSize: 3000,
+          memorisationMediumSize: 4000,
+          memorisationLongSize: 9000,
+        },
+        current
+      )
+    ).not.toThrow();
+  });
+
+  it("refuses an edit that breaks a rule, names the rule and leaves the current values", () => {
+    const before = { ...current };
+    expect(() => checkMemorisationSettingsEdits({ memorisationShortSize: 3000 }, current)).toThrow(
+      "Short must be less than Medium"
+    );
+    expect(() => checkMemorisationSettingsEdits({ memorisationLongSize: 1500 }, current)).toThrow(
+      "Medium must be less than Long"
+    );
+    expect(() => checkMemorisationSettingsEdits({ memorisationMediumSize: 99 }, current)).toThrow(
+      "memorisationMediumSize must be a whole number from 100 to 20000 characters"
+    );
+    expect(() => checkMemorisationSettingsEdits({ memorisationShortSize: 1.5 }, current)).toThrow(
+      "memorisationShortSize must be a whole number from 100 to 20000 characters"
+    );
+    expect(current).toEqual(before);
+  });
+
+  it("drops all seven memorisation keys, including the presets, from a project config", () => {
+    const project: Record<string, unknown> = {
+      memorisationMaxSize: 1,
+      memorisationSizeUnit: "tokens",
+      memorisationRepeat: "replace",
+      memorisationRerank: true,
+      memorisationShortSize: 150,
+      memorisationMediumSize: 300,
+      memorisationLongSize: 600,
+      maxMemories: 4,
+    };
+    removeMemorisationProjectOverrides(project);
+    expect(project).toEqual({ maxMemories: 4 });
   });
 });

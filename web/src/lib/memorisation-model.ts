@@ -40,11 +40,95 @@ export function parseCap(text: string, unit: SizeUnit): number | null {
   return Number.isSafeInteger(value) && value >= min && value <= max ? value : null;
 }
 
-/** The row title: the Topic of a snapshot, else the first line of the stored text. */
+/** Plain text of one line of Markdown: no heading, list, emphasis, code or link marks. */
+function plainLine(line: string): string {
+  return (
+    line
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/^([-*+]|\d+[.)])\s+/, "")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/`+([^`]*)`+/g, "$1")
+      .replace(/\*{1,3}([^*]+?)\*{1,3}/g, "$1")
+      // Underscores count as emphasis only at the edge of a word, so snake_case stays.
+      .replace(/(^|[\s(])_{1,2}([^_]+?)_{1,2}(?=[\s).,;:!?]|$)/g, "$1$2")
+      .trim()
+  );
+}
+
+/** The row title as plain text: the Topic of an older snapshot, else the first line, with Markdown marks removed. */
 export function memorisationTitle(content: string): string {
   const lines = content.split("\n").map((line) => line.trim());
   const topic = lines.find((line) => /^topic:/i.test(line))?.replace(/^topic:\s*/i, "");
-  return topic || lines.find(Boolean) || content;
+  return plainLine(topic || lines.find(Boolean) || content) || content.trim();
+}
+
+export type Preset = "short" | "medium" | "long";
+export const PRESETS: readonly Preset[] = ["short", "medium", "long"];
+/** Characters per preset. These are the defaults of `memorisationShortSize` and its two siblings. */
+export const DEFAULT_PRESETS: Record<Preset, number> = { short: 800, medium: 2000, long: 5000 };
+/** The setting that holds each preset, in characters. */
+export const PRESET_KEYS: Record<Preset, string> = {
+  short: "memorisationShortSize",
+  medium: "memorisationMediumSize",
+  long: "memorisationLongSize",
+};
+
+/** A preset in `unit`. Same rule as `presetSizeIn` in `src/core/memorisation.ts`; a test pins both. */
+export const presetSizeIn = (chars: number, unit: SizeUnit): number =>
+  unit === "tokens" ? Math.ceil(chars / 4) : chars;
+
+/** The presets from the settings snapshot; a missing or odd value falls back to its default. */
+export function presetsFrom(read: (key: string) => unknown): Record<Preset, number> {
+  const pick = (preset: Preset) => {
+    const value = read(PRESET_KEYS[preset]);
+    return typeof value === "number" ? value : DEFAULT_PRESETS[preset];
+  };
+  return { short: pick("short"), medium: pick("medium"), long: pick("long") };
+}
+
+/** The preset whose value in `unit` equals the number in the box, else "custom". */
+export function selectedPreset(
+  size: string | number | undefined,
+  unit: SizeUnit,
+  presets: Record<Preset, number>
+): Preset | "custom" {
+  const text = String(size ?? "").trim();
+  if (!/^\d+$/.test(text)) return "custom";
+  return PRESETS.find((preset) => presetSizeIn(presets[preset], unit) === Number(text)) ?? "custom";
+}
+
+export type PresetProblem =
+  | { rule: "range"; preset: Preset }
+  | { rule: "order"; lower: Preset; higher: Preset }
+  | { rule: "token"; lower: Preset; higher: Preset; tokens: number };
+
+/**
+ * The edited presets as numbers, or the first rule they break: whole numbers in range, then
+ * Short < Medium < Long, each at least one token above the one below (the core rule).
+ */
+export function checkPresets(
+  drafts: Record<Preset, string>
+): { presets: Record<Preset, number> } | { problem: PresetProblem } {
+  const { min, max } = SIZE_RANGE.characters;
+  const presets = {} as Record<Preset, number>;
+  for (const preset of PRESETS) {
+    const text = drafts[preset].trim();
+    const value = /^\d+$/.test(text) ? Number(text) : NaN;
+    if (!Number.isSafeInteger(value) || value < min || value > max) {
+      return { problem: { rule: "range", preset } };
+    }
+    presets[preset] = value;
+  }
+  for (let i = 1; i < PRESETS.length; i++) {
+    const lower = PRESETS[i - 1]!;
+    const higher = PRESETS[i]!;
+    if (presets[lower] >= presets[higher]) return { problem: { rule: "order", lower, higher } };
+    const tokens = presetSizeIn(presets[lower], "tokens");
+    if (tokens >= presetSizeIn(presets[higher], "tokens")) {
+      return { problem: { rule: "token", lower, higher, tokens } };
+    }
+  }
+  return { presets };
 }
 
 /** Fills in the host of recall matches from the list, which knows it. */

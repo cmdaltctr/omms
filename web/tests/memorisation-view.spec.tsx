@@ -1,4 +1,5 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, mock } from "bun:test";
+import { isValidElement, type ReactNode } from "react";
 import {
   allText,
   byType,
@@ -12,6 +13,16 @@ import {
 } from "./space-kit.tsx";
 
 installReact();
+// DOMPurify needs a browser DOM, so a stand-in removes script elements and records what it was given.
+const sanitised: string[] = [];
+mock.module("dompurify", () => ({
+  default: {
+    sanitize: (html: string) => {
+      sanitised.push(html);
+      return html.replace(/<script[\s\S]*?<\/script>/gi, "");
+    },
+  },
+}));
 const stored = new Map<string, string>();
 (globalThis as unknown as { localStorage: unknown }).localStorage = {
   getItem: (key: string) => stored.get(key) ?? null,
@@ -41,8 +52,11 @@ const { MemorisationSettings } =
   await import("../src/lib/components/memorisation/MemorisationSettings.tsx");
 const { RepeatChoice } = await import("../src/lib/components/memorisation/RepeatChoice.tsx");
 const { SizeCapForm } = await import("../src/lib/components/memorisation/SizeCapForm.tsx");
+const { PresetEditor } = await import("../src/lib/components/memorisation/PresetEditor.tsx");
 const { RerankSwitch } = await import("../src/lib/components/memorisation/RerankSwitch.tsx");
 const { Tooltip } = await import("../src/lib/components/ui/tooltip.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { DeleteMemorisationDialog } =
   await import("../src/lib/components/memorisation/DeleteMemorisationDialog.tsx");
 const { MemorisationSelectBar } =
@@ -73,6 +87,7 @@ const own = [
   MemorisationSettings,
   RepeatChoice,
   SizeCapForm,
+  PresetEditor,
   RerankSwitch,
   DeleteMemorisationDialog,
   MemorisationSelectBar,
@@ -100,6 +115,8 @@ let revision = "r1";
 let refuseSizeBelow = 0;
 /** When set, a PATCH of memorisationRerank fails with this server reason. */
 let rerankSaveFails: string | null = null;
+/** When set, every PATCH of the settings fails with this server reason. */
+let settingsSaveFails: string | null = null;
 let deleteFails = false;
 let recallReply: { status?: number; body: unknown } | null = null;
 let requests: Request[] = [];
@@ -131,6 +148,7 @@ beforeEach(() => {
   address = "/memorisation";
   refuseSizeBelow = 0;
   rerankSaveFails = null;
+  settingsSaveFails = null;
   revision = "r1";
   settings = {
     memorisationRepeat: { value: "add", globalValue: "add" },
@@ -219,6 +237,9 @@ beforeEach(() => {
     }
     if (method === "GET" && path === "/api/settings") return { body: { revision, settings } };
     if (method === "PATCH" && path === "/api/settings") {
+      if (settingsSaveFails) {
+        return { status: 400, body: { success: false, error: settingsSaveFails } };
+      }
       if (rerankSaveFails && body.edits.memorisationRerank !== undefined) {
         return { status: 400, body: { success: false, error: rerankSaveFails } };
       }
@@ -261,13 +282,10 @@ const changes = () => requests.filter((request) => request.method !== "GET");
 const titles = (tree: Node[]) => byType(tree, "h3").map((node) => text(node.props.children));
 const buttonOf = (nodes: Node[], label: string) =>
   byType(nodes, Button).find((node) => text(node.props.children).trim() === label)!;
+const isRadio = (node: Node) =>
+  (node.type === "button" || node.type === Button) && node.props.role === "radio";
 const radioOf = (tree: Node[], label: string) =>
-  tree.find(
-    (node) =>
-      node.type === "button" &&
-      node.props.role === "radio" &&
-      text(node.props.children).includes(label)
-  )!;
+  tree.find((node) => isRadio(node) && text(node.props.children).includes(label))!;
 const inputOf = (tree: Node[], id: string) =>
   tree.find((node) => node.type === Input && node.props.id === id)!;
 const typeInto = (node: Node, value: string) => node.props.onChange({ target: { value } });
@@ -277,6 +295,15 @@ function rowOf(tree: Node[], title: string): Node[] {
   expect(start, `row ${title}`).toBeGreaterThanOrEqual(0);
   const next = tree.findIndex((node, index) => index > start && node.type === "h3");
   return tree.slice(start, next < 0 ? undefined : next);
+}
+const confirmOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+/** Presses Confirm in the open dialog, as the real dialog does: it closes itself on success. */
+async function confirmDialog() {
+  const dialog = confirmOf(await settle(page, own));
+  expect(dialog, "a confirm dialog is open").toBeDefined();
+  const result = await dialog!.props.onConfirm();
+  if (result.success) dialog!.props.onClose();
+  return settle(page, own);
 }
 const submitSearch = async (query: string) => {
   const tree = await settle(page, own);
@@ -319,21 +346,55 @@ it("shows a failure to load without a list", async () => {
   expect(allText(tree)).toContain("Could not load the memorisations");
 });
 
+const textBox = (tree: Node[], id: string) =>
+  tree.find((node) => node.props["aria-label"] === `Stored text of ${id}`)!;
+const htmlOf = (node: Node) => (node.props.dangerouslySetInnerHTML as { __html: string }).__html;
+const openRow = async (title: string) => {
+  const tree = await settle(page, own);
+  buttonOf(rowOf(tree, title), "Show full text").props.onClick();
+  return settle(page, own);
+};
+
 it("opens a row to show the full stored text", async () => {
   let tree = await settle(page, own);
   const row = rowOf(tree, "release");
-  expect(byType(tree, "pre").map((node) => node.props["aria-label"])).not.toContain(
-    "Stored text of ms-aaaaaa"
-  );
+  expect(textBox(tree, "ms-aaaaaa")).toBeUndefined();
   const open = buttonOf(row, "Show full text");
   expect(open.props["aria-expanded"]).toBe(false);
   open.props.onClick();
   tree = await settle(page, own);
-  const pre = byType(tree, "pre").find(
-    (node) => node.props["aria-label"] === "Stored text of ms-aaaaaa"
-  )!;
-  expect(text(pre.props.children)).toBe("Topic: release\nDone: tagged\nNext: publish");
+  const box = textBox(tree, "ms-aaaaaa");
+  expect(box.type).toBe("div");
+  expect(box.props.className).toContain("markdown-content");
+  expect(box.props.dir).toBe("auto");
+  expect(box.props.className).toContain("max-h-96");
+  // A snapshot saved before the change keeps each line on its own line.
+  expect(htmlOf(box)).toContain("Topic: release<br>Done: tagged<br>Next: publish");
+  expect(byType(tree, "pre")).toHaveLength(0);
   expect(buttonOf(rowOf(tree, "release"), "Hide full text").props["aria-expanded"]).toBe(true);
+});
+
+it("renders a structured note as Markdown: a heading and list items", async () => {
+  rows = [
+    {
+      ...rows[0]!,
+      content: "omms release\n\n## Done\n- tagged\n- pushed\n\n## Next\npublish",
+    },
+  ];
+  const tree = await openRow("omms release");
+  const html = htmlOf(textBox(tree, "ms-aaaaaa"));
+  expect(html).toContain("<h2>Done</h2>");
+  expect(html).toContain("<h2>Next</h2>");
+  expect(html.match(/<li>/g)).toHaveLength(2);
+  expect(html).toContain("<li>tagged</li>");
+});
+
+it("passes the note through the sanitiser and shows no script element", async () => {
+  rows = [{ ...rows[0]!, content: "plan\n\n<script>alert(1)</script>\n\nthen ship" }];
+  sanitised.length = 0;
+  const tree = await openRow("plan");
+  expect(sanitised.some((html) => html.includes("<script>"))).toBe(true);
+  expect(htmlOf(textBox(tree, "ms-aaaaaa"))).not.toContain("<script");
 });
 
 it("recalls by ID and shows only that record", async () => {
@@ -452,7 +513,7 @@ it("saves the repeat choice through the settings route", async () => {
   let tree = await settle(page, own);
   expect(radioOf(tree, "Add a new memorisation").props["aria-checked"]).toBe(true);
   radioOf(tree, "Replace the earlier one").props.onClick();
-  tree = await settle(page, own);
+  tree = await confirmDialog();
   expect(changes()).toEqual([
     {
       method: "PATCH",
@@ -485,7 +546,7 @@ it("saves the rerank switch through the settings route and keeps it on after a r
   expect(box.props.disabled).toBeFalsy();
   expect(allText(tree)).toContain("Rerank text recall (experimental)");
   box.props.onCheckedChange(true);
-  tree = await settle(page, own);
+  tree = await confirmDialog();
   expect(changes()).toEqual([
     {
       method: "PATCH",
@@ -505,7 +566,7 @@ it("returns the rerank switch to its earlier position and shows the server's rea
   rerankSaveFails = "Invalid memorisationRerank setting";
   let tree = await settle(page, own);
   rerankSwitch(tree).props.onCheckedChange(true);
-  tree = await settle(page, own);
+  tree = await confirmDialog();
   expect(rerankSwitch(tree).props.checked).toBe(false);
   expect(allText(tree)).toContain("Invalid memorisationRerank setting");
 });
@@ -530,7 +591,7 @@ it("saves a token cap as a pair", async () => {
   byType(tree, "form")
     .at(-1)!
     .props.onSubmit({ preventDefault() {} });
-  tree = await settle(page, own);
+  tree = await confirmDialog();
   expect(changes()).toEqual([
     {
       method: "PATCH",
@@ -554,6 +615,7 @@ it("shows the range and saves nothing for a value that is too small", async () =
     .props.onSubmit({ preventDefault() {} });
   tree = await settle(page, own);
   expect(changes()).toEqual([]);
+  expect(confirmOf(tree)).toBeUndefined();
   expect(allText(tree)).toContain("Enter a whole number from 100 to 20,000 characters.");
 
   // Tokens use their own range.
@@ -562,9 +624,9 @@ it("shows the range and saves nothing for a value that is too small", async () =
   byType(await settle(page, own), "form")
     .at(-1)!
     .props.onSubmit({ preventDefault() {} });
-  expect(allText(await settle(page, own))).toContain(
-    "Enter a whole number from 25 to 5,000 tokens."
-  );
+  const tokenTree = await settle(page, own);
+  expect(allText(tokenTree)).toContain("Enter a whole number from 25 to 5,000 tokens.");
+  expect(confirmOf(tokenTree)).toBeUndefined();
   expect(changes()).toEqual([]);
 });
 
@@ -576,11 +638,768 @@ it("shows the range when the server refuses a value", async () => {
   byType(tree, "form")
     .at(-1)!
     .props.onSubmit({ preventDefault() {} });
-  tree = await settle(page, own);
+  tree = await confirmDialog();
   expect(changes()).toHaveLength(1);
   expect(allText(tree)).toContain("Enter a whole number from 100 to 20,000 characters.");
   // The typed value stays so the user can correct it.
   expect(inputOf(tree, "memorisation-size").props.value).toBe("120");
+});
+
+// ---- Note length presets ----
+
+const sizeBox = (tree: Node[]) => inputOf(tree, "memorisation-size").props.value;
+const checked = (tree: Node[], label: string) => radioOf(tree, label).props["aria-checked"];
+const sizeForm = (tree: Node[]) => byType(tree, "form").at(-1)!;
+
+it("shows each preset with its value in the unit, and selects the one the cap matches", async () => {
+  const tree = await settle(page, own);
+  expect(allText(tree.filter(isRadio))).toContain("Short · 800");
+  expect(checked(tree, "Short · 800")).toBe(false);
+  expect(checked(tree, "Medium · 2000")).toBe(true);
+  expect(checked(tree, "Long · 5000")).toBe(false);
+  expect(checked(tree, "Custom")).toBe(false);
+});
+
+it("fills the box when a preset is chosen, and saves only the cap and unit", async () => {
+  let tree = await settle(page, own);
+  radioOf(tree, "Short").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("800");
+  expect(checked(tree, "Short")).toBe(true);
+  expect(changes()).toEqual([]);
+  sizeForm(tree).props.onSubmit({ preventDefault() {} });
+  await confirmDialog();
+  expect(changes()).toEqual([
+    {
+      method: "PATCH",
+      path: "/api/settings",
+      body: {
+        edits: { memorisationMaxSize: 800, memorisationSizeUnit: "characters" },
+        revision: "r1",
+      },
+    },
+  ]);
+});
+
+it("selects Custom when a typed number matches no preset", async () => {
+  let tree = await settle(page, own);
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  tree = await settle(page, own);
+  expect(checked(tree, "Custom")).toBe(true);
+  expect(checked(tree, "Medium")).toBe(false);
+  typeInto(inputOf(tree, "memorisation-size"), "800");
+  tree = await settle(page, own);
+  expect(checked(tree, "Short")).toBe(true);
+});
+
+it("opens a saved 500 tokens as Medium and Tokens", async () => {
+  settings.memorisationMaxSize = { value: 500, globalValue: 500 };
+  settings.memorisationSizeUnit = { value: "tokens", globalValue: "tokens" };
+  const tree = await settle(page, own);
+  expect(checked(tree, "Medium")).toBe(true);
+  expect(checked(tree, "Tokens")).toBe(true);
+  expect(sizeBox(tree)).toBe("500");
+  expect(allText(tree)).toContain("Medium · 500");
+});
+
+it("refills the preset in the new unit, and keeps the number on Custom", async () => {
+  settings.memorisationMaxSize = { value: 5000, globalValue: 5000 };
+  let tree = await settle(page, own);
+  expect(checked(tree, "Long")).toBe(true);
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("1250");
+  expect(checked(tree, "Long")).toBe(true);
+  radioOf(tree, "Characters").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("5000");
+  // Custom keeps the typed number.
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  radioOf(await settle(page, own), "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("3000");
+  expect(checked(tree, "Custom")).toBe(true);
+});
+
+it("uses the presets of the settings snapshot", async () => {
+  settings.memorisationShortSize = { value: 1000, globalValue: 1000 };
+  let tree = await settle(page, own);
+  expect(allText(tree)).toContain("Short · 1000");
+  radioOf(tree, "Short").props.onClick();
+  radioOf(await settle(page, own), "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("250");
+  expect(allText(tree)).toContain("Short · 250");
+});
+
+// ---- The preset editor ----
+
+const presetBox = (tree: Node[], name: string) => inputOf(tree, `memorisation-preset-${name}`);
+const openEditor = async () => {
+  const tree = await settle(page, own);
+  buttonOf(tree, "Edit presets").props.onClick();
+  return settle(page, own);
+};
+const press = async (label: string) => {
+  buttonOf(await settle(page, own), label).props.onClick();
+  return settle(page, own);
+};
+/** Save presets with values that pass the checks: press it, then confirm the dialog. */
+const savePresets = async () => {
+  await press("Save presets");
+  return confirmDialog();
+};
+
+it("opens the three preset boxes with a token estimate beside each", async () => {
+  let tree = await settle(page, own);
+  expect(tree.find((node) => node.props.id === "memorisation-preset-short")).toBeUndefined();
+  tree = await openEditor();
+  expect(["short", "medium", "long"].map((name) => presetBox(tree, name).props.value)).toEqual([
+    "800",
+    "2000",
+    "5000",
+  ]);
+  expect(allText(tree)).toContain("about 200 tokens");
+  expect(allText(tree)).toContain("about 500 tokens");
+  expect(allText(tree)).toContain("about 1250 tokens");
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await settle(page, own);
+  expect(allText(tree)).toContain("about 250 tokens");
+  expect(changes()).toEqual([]);
+});
+
+it("saves an edited selected preset together with the cap, so it stays selected", async () => {
+  settings.memorisationMaxSize = { value: 800, globalValue: 800 };
+  let tree = await openEditor();
+  expect(checked(tree, "Short")).toBe(true);
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await savePresets();
+  expect(changes()).toEqual([
+    {
+      method: "PATCH",
+      path: "/api/settings",
+      body: {
+        edits: {
+          memorisationShortSize: 1000,
+          memorisationMediumSize: 2000,
+          memorisationLongSize: 5000,
+          memorisationMaxSize: 1000,
+        },
+        revision: "r1",
+      },
+    },
+  ]);
+  expect(tree.find((node) => node.props.id === "memorisation-preset-short")).toBeUndefined();
+  expect(checked(tree, "Short · 1000")).toBe(true);
+  expect(sizeBox(tree)).toBe("1000");
+});
+
+it("writes the cap in the saved unit when the selected preset changes", async () => {
+  settings.memorisationMaxSize = { value: 500, globalValue: 500 };
+  settings.memorisationSizeUnit = { value: "tokens", globalValue: "tokens" };
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "medium"), "2400");
+  tree = await savePresets();
+  expect(changes()[0]!.body.edits).toMatchObject({
+    memorisationMediumSize: 2400,
+    memorisationMaxSize: 600,
+  });
+  expect(checked(tree, "Medium")).toBe(true);
+});
+
+it("leaves the cap alone when another preset is saved", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "long"), "8000");
+  tree = await savePresets();
+  expect(changes()).toHaveLength(1);
+  expect(changes()[0]!.body.edits).toEqual({
+    memorisationShortSize: 800,
+    memorisationMediumSize: 2000,
+    memorisationLongSize: 8000,
+  });
+  expect(allText(tree)).toContain("Long · 8000");
+  expect(checked(tree, "Medium")).toBe(true);
+  expect(sizeBox(tree)).toBe("2000");
+});
+
+it("refuses presets that share one token value and sends nothing", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "1997");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain(
+    "Short and Medium must differ by at least one token. Both are about 500 tokens."
+  );
+  expect(changes()).toEqual([]);
+  expect(confirmOf(tree)).toBeUndefined();
+});
+
+it("shows the broken rule and sends nothing for out-of-order or out-of-range values", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "2500");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("Short must be less than Medium");
+  expect(changes()).toEqual([]);
+  expect(confirmOf(tree)).toBeUndefined();
+  expect(tree.find((node) => node.props.id === "memorisation-preset-short")).toBeDefined();
+  typeInto(presetBox(tree, "short"), "50");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("Short must be a whole number from 100 to 20,000 characters.");
+  expect(allText(tree)).not.toContain("must be less than");
+  expect(changes()).toEqual([]);
+  expect(confirmOf(tree)).toBeUndefined();
+});
+
+it("fills the defaults on Reset presets without a request, and saves them on Save", async () => {
+  settings.memorisationShortSize = { value: 1000, globalValue: 1000 };
+  settings.memorisationMaxSize = { value: 1000, globalValue: 1000 };
+  let tree = await openEditor();
+  expect(presetBox(tree, "short").props.value).toBe("1000");
+  tree = await press("Reset presets");
+  expect(["short", "medium", "long"].map((name) => presetBox(tree, name).props.value)).toEqual([
+    "800",
+    "2000",
+    "5000",
+  ]);
+  expect(changes()).toEqual([]);
+  tree = await savePresets();
+  expect(changes()[0]!.body.edits).toEqual({
+    memorisationShortSize: 800,
+    memorisationMediumSize: 2000,
+    memorisationLongSize: 5000,
+    memorisationMaxSize: 800,
+  });
+});
+
+it("closes the boxes on Cancel without a request, and reopens with the saved values", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await press("Cancel");
+  expect(tree.find((node) => node.props.id === "memorisation-preset-short")).toBeUndefined();
+  expect(changes()).toEqual([]);
+  tree = await openEditor();
+  expect(presetBox(tree, "short").props.value).toBe("800");
+});
+
+it("moves the cap to an edited preset that the unsaved box matched", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Short").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("800");
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await savePresets();
+  // The saved cap is Medium and did not change, so only the presets go out.
+  expect(changes()[0]!.body.edits).toEqual({
+    memorisationShortSize: 1000,
+    memorisationMediumSize: 2000,
+    memorisationLongSize: 5000,
+  });
+  expect(sizeBox(tree)).toBe("1000");
+  expect(checked(tree, "Short · 1000")).toBe(true);
+  expect(checked(tree, "Custom")).toBe(false);
+  // Nothing saves the cap until the user presses Save.
+  expect(changes()).toHaveLength(1);
+});
+
+it("follows an edited preset in the box unit when the unit is unsaved", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("500");
+  typeInto(presetBox(tree, "medium"), "2400");
+  tree = await savePresets();
+  // The saved cap follows in the saved unit; the box follows in the box unit.
+  expect(changes()[0]!.body.edits).toMatchObject({
+    memorisationMediumSize: 2400,
+    memorisationMaxSize: 2400,
+  });
+  expect(sizeBox(tree)).toBe("600");
+  expect(checked(tree, "Medium")).toBe(true);
+});
+
+it("keeps a custom number in the box when presets change", async () => {
+  let tree = await settle(page, own);
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  tree = await settle(page, own);
+  buttonOf(tree, "Edit presets").props.onClick();
+  tree = await settle(page, own);
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await savePresets();
+  expect(sizeBox(tree)).toBe("3000");
+  expect(checked(tree, "Custom")).toBe(true);
+});
+
+it("leaves the box alone when the preset it matched did not change", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Short").props.onClick();
+  tree = await settle(page, own);
+  typeInto(presetBox(tree, "long"), "8000");
+  tree = await savePresets();
+  expect(sizeBox(tree)).toBe("800");
+  expect(checked(tree, "Short")).toBe(true);
+});
+
+// ---- Every settings save asks first ----
+
+const patches = () => changes().filter((request) => request.path === "/api/settings");
+const dialogText = (tree: Node[]) => {
+  const dialog = confirmOf(tree)!;
+  return { title: text(dialog.props.title), body: text(dialog.props.body), dialog };
+};
+const submitSize = async (value: string) => {
+  let tree = await settle(page, own);
+  typeInto(inputOf(tree, "memorisation-size"), value);
+  tree = await settle(page, own);
+  sizeForm(tree).props.onSubmit({ preventDefault() {} });
+  return settle(page, own);
+};
+
+it("asks before saving the size cap, and sends nothing until the user confirms", async () => {
+  const tree = await submitSize("1000");
+  expect(patches()).toEqual([]);
+  const { title, body, dialog } = dialogText(tree);
+  expect(title).toBe("Change the size cap?");
+  expect(body).toBe(
+    "New memorisations above 1,000 characters will be refused. Records you already saved stay as they are."
+  );
+  expect(dialog.props.confirmLabel).toBe("Save size cap");
+  expect(dialog.props.busyLabel).toBe("Saving the size cap…");
+  expect(await dialog.props.onConfirm()).toEqual({ success: true });
+  expect(patches()).toEqual([
+    {
+      method: "PATCH",
+      path: "/api/settings",
+      body: {
+        edits: { memorisationMaxSize: 1000, memorisationSizeUnit: "characters" },
+        revision: "r1",
+      },
+    },
+  ]);
+});
+
+it("states the size cap in tokens when the unit is Tokens", async () => {
+  let tree = await settle(page, own);
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  typeInto(inputOf(tree, "memorisation-size"), "1500");
+  tree = await settle(page, own);
+  sizeForm(tree).props.onSubmit({ preventDefault() {} });
+  tree = await settle(page, own);
+  expect(dialogText(tree).body).toContain("above 1,500 tokens will be refused");
+});
+
+it("keeps the saved size cap and sends nothing when the size cap dialog is cancelled", async () => {
+  let tree = await submitSize("1000");
+  confirmOf(tree)!.props.onClose();
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeUndefined();
+  expect(patches()).toEqual([]);
+  expect((settings.memorisationMaxSize as { globalValue: number }).globalValue).toBe(2000);
+  // The typed number stays, so the user can save it later.
+  expect(sizeBox(tree)).toBe("1000");
+});
+
+it("keeps the size cap dialog open and gives the server's refusal inside it", async () => {
+  refuseSizeBelow = 150;
+  let tree = await submitSize("120");
+  const result = await confirmOf(tree)!.props.onConfirm();
+  expect(result.success).toBe(false);
+  expect(result.error).toBe("Enter a whole number from 100 to 20,000 characters.");
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeDefined();
+  settingsSaveFails = "Disk is full";
+  refuseSizeBelow = 0;
+  const failed = await confirmOf(tree)!.props.onConfirm();
+  expect(failed).toEqual({ success: false, error: "Disk is full" });
+});
+
+it("asks before saving the repeat choice, and says what the choice does", async () => {
+  let tree = await settle(page, own);
+  radioOf(tree, "Replace the earlier one").props.onClick();
+  tree = await settle(page, own);
+  expect(patches()).toEqual([]);
+  const { title, body, dialog } = dialogText(tree);
+  expect(title).toBe("Change the repeat choice?");
+  expect(body).toBe(
+    "When an agent memorises the same session again, the new snapshot replaces the earlier one and keeps its ID."
+  );
+  expect(dialog.props.confirmLabel).toBe("Save choice");
+  expect(await dialog.props.onConfirm()).toEqual({ success: true });
+  expect(patches()).toHaveLength(1);
+  expect(patches()[0]!.body.edits).toEqual({ memorisationRepeat: "replace" });
+});
+
+it("says the repeat choice adds a new memorisation when Add is chosen", async () => {
+  settings.memorisationRepeat = { value: "replace", globalValue: "replace" };
+  let tree = await settle(page, own);
+  radioOf(tree, "Add a new memorisation").props.onClick();
+  tree = await settle(page, own);
+  expect(dialogText(tree).body).toBe(
+    "When an agent memorises the same session again, a new memorisation is added. Earlier snapshots stay."
+  );
+});
+
+it("leaves the saved repeat choice selected when its dialog is cancelled", async () => {
+  let tree = await settle(page, own);
+  radioOf(tree, "Replace the earlier one").props.onClick();
+  tree = await settle(page, own);
+  confirmOf(tree)!.props.onClose();
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeUndefined();
+  expect(patches()).toEqual([]);
+  expect(radioOf(tree, "Add a new memorisation").props["aria-checked"]).toBe(true);
+  expect(radioOf(tree, "Replace the earlier one").props["aria-checked"]).toBe(false);
+});
+
+it("keeps the repeat dialog open and gives the server's reason inside it", async () => {
+  settingsSaveFails = "Invalid memorisationRepeat setting";
+  let tree = await settle(page, own);
+  radioOf(tree, "Replace the earlier one").props.onClick();
+  tree = await settle(page, own);
+  const result = await confirmOf(tree)!.props.onConfirm();
+  expect(result).toEqual({ success: false, error: "Invalid memorisationRepeat setting" });
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeDefined();
+  expect(radioOf(tree, "Add a new memorisation").props["aria-checked"]).toBe(true);
+});
+
+it("asks before turning reranking on or off", async () => {
+  rerankReadySettings();
+  let tree = await settle(page, own);
+  rerankSwitch(tree).props.onCheckedChange(true);
+  tree = await settle(page, own);
+  expect(patches()).toEqual([]);
+  let shown = dialogText(tree);
+  expect(shown.title).toBe("Turn on reranking?");
+  expect(shown.body).toBe(
+    "The reranker server will reorder the matches of a text recall. This setting is experimental."
+  );
+  expect(shown.dialog.props.confirmLabel).toBe("Turn on");
+  expect(await shown.dialog.props.onConfirm()).toEqual({ success: true });
+  shown.dialog.props.onClose();
+  tree = await settle(page, own);
+  expect(patches()[0]!.body.edits).toEqual({ memorisationRerank: true });
+
+  rerankSwitch(tree).props.onCheckedChange(false);
+  tree = await settle(page, own);
+  shown = dialogText(tree);
+  expect(shown.title).toBe("Turn off reranking?");
+  expect(shown.body).toBe(
+    "A text recall will keep its own order and no longer call the reranker server."
+  );
+  expect(shown.dialog.props.confirmLabel).toBe("Turn off");
+  expect(patches()).toHaveLength(1);
+});
+
+it("leaves the rerank switch as saved when its dialog is cancelled", async () => {
+  rerankReadySettings();
+  let tree = await settle(page, own);
+  rerankSwitch(tree).props.onCheckedChange(true);
+  tree = await settle(page, own);
+  confirmOf(tree)!.props.onClose();
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeUndefined();
+  expect(patches()).toEqual([]);
+  expect(rerankSwitch(tree).props.checked).toBe(false);
+});
+
+it("keeps the rerank dialog open and gives the server's reason inside it", async () => {
+  rerankReadySettings();
+  rerankSaveFails = "Invalid memorisationRerank setting";
+  let tree = await settle(page, own);
+  rerankSwitch(tree).props.onCheckedChange(true);
+  tree = await settle(page, own);
+  const result = await confirmOf(tree)!.props.onConfirm();
+  expect(result).toEqual({ success: false, error: "Invalid memorisationRerank setting" });
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeDefined();
+});
+
+it("asks before saving the presets, lists the three values, and says the cap moves too", async () => {
+  settings.memorisationMaxSize = { value: 800, globalValue: 800 };
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "1000");
+  await press("Save presets");
+  tree = await settle(page, own);
+  expect(patches()).toEqual([]);
+  const { title, body, dialog } = dialogText(tree);
+  expect(title).toBe("Save the note length presets?");
+  expect(body).toContain("Short: 1,000 characters");
+  expect(body).toContain("Medium: 2,000 characters");
+  expect(body).toContain("Long: 5,000 characters");
+  expect(body).toContain(
+    "The size cap also moves to 1,000 characters, because the selected preset (Short) changed."
+  );
+  expect(dialog.props.confirmLabel).toBe("Save presets");
+  // The editor stays open until the save succeeds.
+  expect(presetBox(tree, "short")).toBeDefined();
+  expect(await dialog.props.onConfirm()).toEqual({ success: true });
+  expect(patches()[0]!.body.edits).toEqual({
+    memorisationShortSize: 1000,
+    memorisationMediumSize: 2000,
+    memorisationLongSize: 5000,
+    memorisationMaxSize: 1000,
+  });
+  tree = await settle(page, own);
+  expect(tree.find((node) => node.props.id === "memorisation-preset-short")).toBeUndefined();
+});
+
+it("does not mention the size cap in the preset dialog when the cap stays", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "long"), "8000");
+  await press("Save presets");
+  tree = await settle(page, own);
+  const { body } = dialogText(tree);
+  expect(body).toContain("Long: 8,000 characters");
+  expect(body).not.toContain("size cap");
+});
+
+it("names the cap in tokens in the preset dialog when the saved unit is Tokens", async () => {
+  settings.memorisationMaxSize = { value: 500, globalValue: 500 };
+  settings.memorisationSizeUnit = { value: "tokens", globalValue: "tokens" };
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "medium"), "2400");
+  await press("Save presets");
+  tree = await settle(page, own);
+  expect(dialogText(tree).body).toContain(
+    "The size cap also moves to 600 tokens, because the selected preset (Medium) changed."
+  );
+});
+
+it("keeps the editor open with its values when the preset dialog is cancelled", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "1000");
+  await press("Save presets");
+  tree = await settle(page, own);
+  confirmOf(tree)!.props.onClose();
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeUndefined();
+  expect(patches()).toEqual([]);
+  expect(presetBox(tree, "short").props.value).toBe("1000");
+  expect(allText(tree)).toContain("Short · 800");
+});
+
+it("keeps the preset dialog and the editor open and gives the server's reason inside it", async () => {
+  settingsSaveFails = "Presets could not be written";
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "1000");
+  await press("Save presets");
+  tree = await settle(page, own);
+  const result = await confirmOf(tree)!.props.onConfirm();
+  expect(result).toEqual({ success: false, error: "Presets could not be written" });
+  tree = await settle(page, own);
+  expect(confirmOf(tree)).toBeDefined();
+  expect(presetBox(tree, "short").props.value).toBe("1000");
+});
+
+it("shows the settings dialog texts in Chinese and Arabic", async () => {
+  for (const [language, title] of [
+    ["zh", "更改大小上限？"],
+    ["ar", "تغيير الحد الأقصى للحجم؟"],
+  ] as const) {
+    setLanguage(language);
+    resetRender();
+    const tree = await submitSize("1000");
+    const shown = dialogText(tree);
+    expect(shown.title).toBe(title);
+    expect(shown.title).not.toBe("Change the size cap?");
+    expect(shown.body).not.toContain("will be refused");
+    expect(shown.dialog.props.confirmLabel).not.toBe("Save size cap");
+  }
+  setLanguage("en");
+});
+
+// ---- Size cap radio groups ----
+
+const within = (node: ReactNode): Node[] =>
+  Array.isArray(node)
+    ? node.flatMap(within)
+    : isValidElement(node)
+      ? [node as Node, ...within((node as Node).props.children)]
+      : [];
+const groupOf = (tree: Node[], label: string) =>
+  tree.find((node) => node.props.role === "radiogroup" && node.props["aria-label"] === label)!;
+const radiosOf = (tree: Node[], label: string) =>
+  within(groupOf(tree, label).props.children).filter(isRadio);
+/** Gives each radio a stand-in element, as React does for a ref, and records focus moves. */
+function attach(radios: Node[]) {
+  const focused: number[] = [];
+  const elements = radios.map((radio, index) => {
+    const element = { focus: () => focused.push(index) };
+    radio.props.ref(element);
+    return element;
+  });
+  return { focused, elements };
+}
+const arrow = (tree: Node[], group: string, key: string, from: unknown) => {
+  const event = { key, target: from, currentTarget: {}, preventDefault: mock(() => {}) };
+  groupOf(tree, group).props.onKeyDown(event);
+  return event;
+};
+let direction = "ltr";
+Object.assign(globalThis, { getComputedStyle: () => ({ direction }) });
+
+it("gives the chosen radio the only tab stop in each group", async () => {
+  let tree = await settle(page, own);
+  expect(radiosOf(tree, "Note length").map((radio) => radio.props.tabIndex)).toEqual([
+    -1, 0, -1, -1,
+  ]);
+  expect(radiosOf(tree, "Unit").map((radio) => radio.props.tabIndex)).toEqual([0, -1]);
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  tree = await settle(page, own);
+  expect(radiosOf(tree, "Note length").map((radio) => radio.props.tabIndex)).toEqual([
+    -1, -1, -1, 0,
+  ]);
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(radiosOf(tree, "Unit").map((radio) => radio.props.tabIndex)).toEqual([-1, 0]);
+});
+
+it("moves focus and the choice with the arrow keys in the preset group", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  const event = arrow(tree, "Note length", "ArrowRight", elements[1]);
+  expect(event.preventDefault).toHaveBeenCalled();
+  expect(focused).toEqual([2]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("5000");
+  expect(checked(tree, "Long")).toBe(true);
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[2]);
+  arrow(tree, "Note length", "ArrowUp", elements[1]);
+  expect(focused).toEqual([1, 0]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("800");
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[0]);
+  expect(focused).toEqual([3]);
+  expect(sizeBox(await settle(page, own))).toBe("800");
+});
+
+it("focuses Custom without changing the number, and leaves it from where focus is", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  radioOf(tree, "Long").props.onClick();
+  tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  arrow(tree, "Note length", "ArrowRight", elements[2]);
+  expect(focused).toEqual([3]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("5000");
+  expect(checked(tree, "Long")).toBe(true);
+  expect(changes()).toEqual([]);
+  // Focus is on Custom now, so the next key starts there, not at the checked radio.
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[3]);
+  expect(focused).toEqual([2]);
+  ({ focused, elements } = attach(radiosOf(await settle(page, own), "Note length")));
+  arrow(tree, "Note length", "ArrowRight", elements[3]);
+  expect(focused).toEqual([0]);
+  expect(sizeBox(await settle(page, own))).toBe("800");
+});
+
+it("flips Left and Right in a right-to-left row, and ignores other keys", async () => {
+  direction = "rtl";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  arrow(tree, "Note length", "ArrowLeft", elements[1]);
+  expect(focused).toEqual([2]);
+  tree = await settle(page, own);
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowRight", elements[2]);
+  arrow(tree, "Note length", "ArrowDown", elements[1]);
+  expect(focused).toEqual([1, 2]);
+  const other = arrow(tree, "Note length", "a", elements[2]);
+  expect(other.preventDefault).not.toHaveBeenCalled();
+  expect(focused).toEqual([1, 2]);
+  direction = "ltr";
+});
+
+it("moves focus and the unit with the arrow keys in the unit group", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Unit"));
+  const event = arrow(tree, "Unit", "ArrowRight", elements[0]);
+  expect(event.preventDefault).toHaveBeenCalled();
+  expect(focused).toEqual([1]);
+  tree = await settle(page, own);
+  expect(checked(tree, "Tokens")).toBe(true);
+  expect(sizeBox(tree)).toBe("500");
+  ({ focused, elements } = attach(radiosOf(tree, "Unit")));
+  arrow(tree, "Unit", "ArrowRight", elements[1]);
+  expect(focused).toEqual([0]);
+  tree = await settle(page, own);
+  expect(checked(tree, "Characters")).toBe(true);
+  expect(sizeBox(tree)).toBe("2000");
+});
+
+it("builds the preset and unit choices from the shared Button", async () => {
+  const tree = await settle(page, own);
+  const radios = [...radiosOf(tree, "Note length"), ...radiosOf(tree, "Unit")];
+  expect(radios).toHaveLength(6);
+  for (const radio of radios) {
+    expect(radio.type).toBe(Button);
+    expect(radio.props.type).toBe("button");
+  }
+  for (const label of ["Note length", "Unit"]) {
+    const raw = within(groupOf(tree, label).props.children).filter(
+      (node) => node.type === "button"
+    );
+    expect(raw).toEqual([]);
+  }
+});
+
+// ---- Preset editor: invalid fields ----
+
+const invalid = (tree: Node[]) =>
+  ["short", "medium", "long"].filter((name) => presetBox(tree, name).props["aria-invalid"]);
+const alertOf = (tree: Node[]) => tree.find((node) => node.props.role === "alert")!;
+
+it("marks the one preset that is out of range and points it at the alert", async () => {
+  let tree = await openEditor();
+  expect(invalid(tree)).toEqual([]);
+  typeInto(presetBox(tree, "medium"), "50");
+  tree = await press("Save presets");
+  expect(invalid(tree)).toEqual(["medium"]);
+  const alert = alertOf(tree);
+  expect(alert.props.id).toBeTruthy();
+  expect(presetBox(tree, "medium").props["aria-describedby"]).toBe(alert.props.id);
+  expect(presetBox(tree, "short").props["aria-describedby"]).toBeUndefined();
+  // Typing clears the problem, the mark and the pointer.
+  typeInto(presetBox(tree, "medium"), "2000");
+  tree = await settle(page, own);
+  expect(invalid(tree)).toEqual([]);
+  expect(presetBox(tree, "medium").props["aria-describedby"]).toBeUndefined();
+});
+
+it("marks both presets of an order or token problem", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "2500");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("Short must be less than Medium");
+  expect(invalid(tree)).toEqual(["short", "medium"]);
+  for (const name of ["short", "medium"]) {
+    expect(presetBox(tree, name).props["aria-describedby"]).toBe(alertOf(tree).props.id);
+  }
+  typeInto(presetBox(tree, "short"), "1997");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("must differ by at least one token");
+  expect(invalid(tree)).toEqual(["short", "medium"]);
+  expect(presetBox(tree, "long").props["aria-describedby"]).toBeUndefined();
+});
+
+it("shows the preset texts in Chinese and Arabic", async () => {
+  for (const [language, word] of [
+    ["zh", "短"],
+    ["ar", "قصير"],
+  ] as const) {
+    setLanguage(language);
+    resetRender();
+    const tree = await settle(page, own);
+    expect(allText(tree)).toContain(word);
+    expect(allText(tree)).not.toContain("Edit presets");
+  }
+  setLanguage("en");
 });
 
 it("shows the page in Arabic", async () => {

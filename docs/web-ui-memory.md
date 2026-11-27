@@ -546,11 +546,13 @@ A memorisation is an exact note that you save on purpose, with an ID such as `ms
 
 ### The list
 
-Each row shows the first line of the note (the topic, for a session snapshot), the ID, the time it was saved, and coloured labels for the kind, the host and the linked space. Memorisations never appear on **Project memories**, in its keyword list, in the **Total** and type counts, or in automatic recall. The **Project memories** page cannot edit a memorisation. To change one, delete it here, or replace it by memorising again.
+Each row shows the title of the note (the topic, for a session snapshot), the ID, the time it was saved, and coloured labels for the kind, the host and the linked space. Memorisations never appear on **Project memories**, in its keyword list, in the **Total** and type counts, or in automatic recall. The **Project memories** page cannot edit a memorisation. To change one, delete it here, or replace it by memorising again.
+
+**Show full text** renders the whole note as Markdown, with the same renderer and the same sanitising as the cards on **Project memories**. A session snapshot shows its `## Done`, `## Doing` and `## Next` sections as headings and bullet lists. The title in the row is plain text, so Markdown symbols are removed from it. A saved memorisation that starts with a `Topic:` line keeps that topic as its title. OMMS never rewrites old records, so they show the text they were saved with.
 
 | Button             | What it does                                                                                                                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Show full text** | Opens the stored text in the row. **Hide full text** closes it.                                                                                                                                                         |
+| **Show full text** | Opens the stored text in the row, shown as formatted Markdown. **Hide full text** closes it.                                                                                                                            |
 | **Copy ID**        | Puts the ID on the clipboard and says so. If the browser refuses, select the ID in the row and copy it.                                                                                                                 |
 | **Delete**         | Asks first, then removes the record. The row disappears and a line confirms it. A record in a linked space is read-only, so **Delete** is off and the row says which space holds it. Switch to that space to delete it. |
 
@@ -596,7 +598,9 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 
 ### Repeat choice
 
-**Repeat memorisation** sets `memorisationRepeat`. It saves when you select a choice.
+Every save on this page asks first. Each dialog names the setting, says what it does, and offers **Cancel** and a confirm button. Nothing is sent until you confirm. The dialog shows progress while it saves, shows a server error inside itself and stays open, and closes when the save succeeds.
+
+**Repeat memorisation** sets `memorisationRepeat`. Selecting a choice opens a **Change the repeat choice?** dialog that says what the choice does. It saves when you confirm. **Cancel** leaves the saved choice selected.
 
 | Choice                      | Key value | Effect                                                                                   |
 | --------------------------- | --------- | ---------------------------------------------------------------------------------------- |
@@ -605,18 +609,47 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 
 ### Size cap
 
-**Size cap** sets `memorisationMaxSize` and `memorisationSizeUnit`. Enter a number, choose **Characters** or **Tokens**, then select **Save**. The two values save together, because the allowed range depends on the unit.
+**Size cap** sets `memorisationMaxSize` and `memorisationSizeUnit`. Pick a note length or enter a number. Choose **Characters** or **Tokens**, then select **Save**. A **Change the size cap?** dialog then says what the new cap does, for example that new memorisations above 1,000 characters are refused and saved records stay as they are. The two values save together when you confirm, because the allowed range depends on the unit.
+
+Above the number box, a **Short**, **Medium**, **Long** or **Custom** choice shows the note length. The agent reads this length and sizes its notes to it. See [Using memory: Note shape and length](using-memory.md#note-shape-and-length).
+
+| Choice     | Default characters | Default tokens | Effect                                                   |
+| ---------- | ------------------ | -------------- | -------------------------------------------------------- |
+| **Short**  | 800                | 200            | Fills the number box with the Short value.               |
+| **Medium** | 2,000              | 500            | Fills the number box with the Medium value. The default. |
+| **Long**   | 5,000              | 1,250          | Fills the number box with the Long value.                |
+| **Custom** | any number         | any number     | Shows when the number you typed matches no preset.       |
+
+- Selecting a preset fills the number box. It does not save. Select **Save** to keep it.
+- Typing a number that matches no preset switches the choice to **Custom**.
+- Switching the unit while a preset is selected refills the box with that preset in the new unit.
 
 | Unit       | Allowed range | Note                                                       |
 | ---------- | ------------- | ---------------------------------------------------------- |
 | Characters | 100 to 20,000 | The default is 2,000 characters.                           |
 | Tokens     | 25 to 5,000   | An estimate: about one token for every four bytes of text. |
 
-A number outside the range saves nothing. The page then shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
+A number outside the range saves nothing and opens no dialog. The page shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
+
+### Edit presets
+
+**Edit presets** on the Size cap card opens three number boxes, one each for Short, Medium and Long. Each box is in characters, with "about N tokens" beside it. N is the characters divided by 4, rounded up.
+
+| Button            | What it does                                                                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Save presets**  | Opens a **Save the note length presets?** dialog. On confirm, saves the three values as `memorisationShortSize`, `memorisationMediumSize` and `memorisationLongSize`. |
+| **Cancel**        | Closes the boxes and drops your edits.                                                                                                                                |
+| **Reset presets** | Fills the boxes with 800, 2,000 and 5,000. It does not save.                                                                                                          |
+
+- Each value is a whole number from 100 to 20,000. Short must be less than Medium, and Medium must be less than Long. Each preset must also be at least one token above the one below it. OMMS refuses a bad edit, shows the rule on the page, opens no dialog, and keeps the previous values.
+- The dialog lists the three values. When the selected preset changed, it also says that the size cap moves to the new value. The boxes stay open until the save succeeds. **Cancel** in the dialog keeps the boxes and your edits.
+- Saving the selected preset also writes the size cap to the new value.
+- Editing a different preset leaves the size cap alone.
+- The presets are global settings. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
 
 ### Rerank text recall
 
-**Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default.
+**Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default. Turning it on or off opens a **Turn on reranking?** or **Turn off reranking?** dialog. It saves when you confirm. **Cancel** leaves the switch as saved.
 
 - With the switch on, text recall asks your reranker server to reorder the matches. Each match keeps its own confidence score, and the one-clear-match rule reads the first two in the new order. A match below the similarity threshold is still left out, so a recall that matches nothing still says so. Linked-space matches still follow own-space matches and are never reranked.
 - The reranker server is the one from the Memory settings page (`rerankerApiUrl` and `rerankerModel`). While its URL or model is missing, the switch stays visible but disabled, with the reason. Set the server first on the Memory settings page.
