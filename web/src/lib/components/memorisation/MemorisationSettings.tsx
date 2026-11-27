@@ -1,4 +1,5 @@
 import { Loader } from "lucide-react";
+import { PresetEditor } from "./PresetEditor";
 import { RepeatChoice } from "./RepeatChoice";
 import { RerankSwitch } from "./RerankSwitch";
 import { SizeCapForm } from "./SizeCapForm";
@@ -14,6 +15,7 @@ const SAVED: Partial<Record<SettingsStatus["kind"], string>> = {
   "repeat-saved": "memorisation-repeat-saved",
   "size-saved": "memorisation-size-saved",
   "rerank-saved": "memorisation-rerank-saved",
+  "presets-saved": "memorisation-preset-saved",
 };
 
 /** The two global settings of memorisation: what a repeat does, and the size cap. */
@@ -38,7 +40,7 @@ export function MemorisationSettings() {
     }
     if (status.kind === "load-failed") return t("memorisation-settings-load-failed");
     if (status.kind === "stale") return t("memorisation-settings-stale");
-    if (status.kind === "rerank-failed") {
+    if (status.kind === "rerank-failed" || status.kind === "presets-failed") {
       return status.reason || t("memorisation-settings-failed");
     }
     if (status.kind === "failed") return t("memorisation-settings-failed");
@@ -80,11 +82,18 @@ export function MemorisationSettings() {
           <SizeCapForm
             sizeText={settings.sizeText}
             unit={settings.unit}
+            presets={settings.presets}
             busy={settings.busy || !settings.loaded}
             changed={changed}
             onSize={settings.setSizeText}
-            onUnit={settings.setUnit}
+            onPreset={settings.choosePreset}
+            onUnit={settings.chooseUnit}
             onSave={() => void settings.saveSize()}
+          />
+          <PresetEditor
+            presets={settings.presets}
+            busy={settings.busy || !settings.loaded}
+            onSave={settings.savePresets}
           />
         </div>
         <div className={SECTION}>

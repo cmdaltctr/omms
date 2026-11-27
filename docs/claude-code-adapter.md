@@ -637,7 +637,7 @@ tool returns. Memories added with it have host `claude-code`.
 | `list`        | List recent memories (default 20)                         | `--limit`, `--scope`                                                                             |
 | `forget`      | Remove a memory                                           | `--id`                                                                                           |
 | `profile`     | Show the user profile, or save a preference               | `--content`                                                                                      |
-| `help`        | Print the memory tool guide as JSON                       | none                                                                                             |
+| `help`        | Print the memory tool guide and the note length as JSON   | none                                                                                             |
 | `list-shards` | List project memory shards and orphaned path associations | none                                                                                             |
 | `migrate`     | Link orphaned shards again after a folder move            | `--from-path` or `--from-hash`, `--dry-run`, `--allow-linked-source`                             |
 | `export`      | Export project memories to a portable JSON file           | `--output`                                                                                       |

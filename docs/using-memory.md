@@ -306,7 +306,7 @@ memory({ mode: "recall", query: "release notes", tags: "release" });
 
 `memorize` works the same as `memorise`.
 
-- Give either `content` or snapshot fields (`topic`, `done`, `doing`, `next`), not both. A snapshot stores the fields as labelled lines. Empty fields are left out.
+- Give either `content` or snapshot fields (`topic`, `done`, `doing`, `next`), not both. A snapshot stores the topic as the first line, then a `## Done`, `## Doing` and `## Next` section for each field that has text. Empty fields are left out. See [Note shape and length](#note-shape-and-length).
 - `tags` are optional. They hold your labels, separated by commas. Say "memorise this, label it release, wip" and the agent passes both labels, plus one to three labels of its own. OMMS trims each label, writes it in lower case and keeps one copy of a repeat. It always adds the tag `memorisation`, which the pages do not show as a label.
 - `memorise` also adds the project name as a label. For a git repository the name is the folder that holds the shared `.git` folder, so every worktree and branch of one repository gives the same label. A folder outside git gives the folder name. A caller in `/` gets no project label, because `/` is not a usable label. A label you already gave is not added twice. Older memorisations keep their labels and gain none.
 - OMMS removes `<private>` text first. It refuses a note that is entirely private.
@@ -314,7 +314,51 @@ memory({ mode: "recall", query: "release notes", tags: "release" });
 - `add` mode refuses `type: "memorisation"`. Use `memorise` to save one, so no other record carries that kind.
 - A saved result returns `id`. A snapshot saved again for the same session follows the `memorisationRepeat` setting.
 - A call with snapshot fields and no `mode` returns an error. It does not return the help text, so the agent learns that nothing was saved.
+- `mode: "help"` returns the note length in `memorisation`. See [Note shape and length](#note-shape-and-length).
 - Automatic capture skips a turn in which a memorise call succeeded. This keeps the snapshot out of per-prompt recall, so it reaches an agent only through `recall`. A failed memorise call does not cause a skip. The skip shows in the capture log as the reason `memorisation-turn`, and the history import skips the same turns.
+
+### Note shape and length
+
+A memorisation is a Markdown note. The Memorisation page shows it as formatted text.
+
+A snapshot saved with `topic`, `done`, `doing` and `next` is stored like this:
+
+```markdown
+omms release
+
+## Done
+
+- tagged 4.16.0
+- pushed
+
+## Next
+
+- publish
+```
+
+Each value goes on the lines below its heading. Sections are separated by a blank line. A field with no text gets no section. A snapshot without a topic starts with its first section.
+
+Old records keep the `Topic:` and `Done:` lines they were saved with. OMMS never rewrites a saved memorisation. The Memorisation page shows that old text as it is.
+
+The note length tells the agent how much to write. It is one of four values:
+
+| Length   | Cap in characters | Cap in tokens | What the skill asks for                                  |
+| -------- | ----------------- | ------------- | -------------------------------------------------------- |
+| `short`  | 800               | 200           | At most 3 bullets in each section.                       |
+| `medium` | 2,000             | 500           | At most 5 bullets in each section. This is the default.  |
+| `long`   | 5,000             | 1,250         | At most 8 bullets in each section and a Context section. |
+| `custom` | any other cap     | any other cap | A note sized to the cap.                                 |
+
+The note length comes from the saved size cap. If the cap equals a preset value in the saved unit, that preset is the length. Any other cap is `custom`. You set the cap and edit the preset values on the [Memorisation page](web-ui-memory.md#size-cap). The three preset values are the global settings `memorisationShortSize`, `memorisationMediumSize` and `memorisationLongSize`. See [Configuration: Memorisation](configuration.md#memorisation).
+
+The agent reads the note length from the `help` mode of the `memory` tool. Claude Code, Pi and OpenCode all return the same field, and so does `om-memory-system memory help`:
+
+```typescript
+memory({ mode: "help" });
+// { ..., memorisation: { length: "medium", maxSize: 2000, unit: "characters" } }
+```
+
+`length` is `short`, `medium`, `long` or `custom`. OMMS reads the config on each call, so a changed cap applies to the next note.
 
 `recall` with an ID returns that record's full text, its ID and its creation
 time. The lookup covers every project of the active space and its linked spaces.
@@ -374,7 +418,7 @@ The agent also loads the skill by itself when a task matches its description.
 
 ## The omms-remember skill
 
-`/omms-remember` saves a short snapshot of the current session as a memorisation, then reports its `ms-` ID. The agent writes the snapshot from the context it already holds. It does not read session history, and it never saves secrets. A later session fetches the snapshot with `recall`. See [Memorise and recall](#memorise-and-recall).
+`/omms-remember` saves a short snapshot of the current session as a memorisation, then reports its `ms-` ID. The agent first reads the note length with `help`, then writes the snapshot from the context it already holds. If `help` fails, it writes a medium note. Snapshot fields are Markdown `-` bullet lists. For a note it composes, such as a decision, the agent writes a plain title line, then `##` sections with bullets. Text you dictate word for word is saved unchanged. The agent does not read session history, and it never saves secrets. A later session fetches the snapshot with `recall`. See [Memorise and recall](#memorise-and-recall).
 
 | Host        | Start it by name       |
 | ----------- | ---------------------- |

@@ -2,31 +2,56 @@ import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { useI18n } from "$lib/i18n";
-import { isSizeUnit, type SizeUnit } from "$lib/memorisation-model";
+import {
+  PRESETS,
+  isSizeUnit,
+  presetSizeIn,
+  selectedPreset,
+  type Preset,
+  type SizeUnit,
+} from "$lib/memorisation-model";
 import { cn } from "$lib/utils";
 
 const UNITS: SizeUnit[] = ["characters", "tokens"];
 
-/** The size cap: a number box, a Characters or Tokens choice, and Save. They save as a pair. */
+const choiceClass = (on: boolean) =>
+  cn(
+    "min-h-9 rounded-[10px] border px-3 text-ui transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50",
+    on
+      ? "border-primary/40 bg-selection text-foreground"
+      : "border-input bg-card text-muted-foreground hover:bg-interactive-hover"
+  );
+
+/**
+ * The size cap: a Short, Medium, Long or Custom choice, a number box, a Characters or Tokens
+ * choice, and Save. The cap and unit save as a pair. The preset choice is worked out from the
+ * box, so typing a number moves it to the matching preset or to Custom.
+ */
 export function SizeCapForm({
   sizeText,
   unit,
+  presets,
   busy,
   changed,
   onSize,
+  onPreset,
   onUnit,
   onSave,
 }: {
   sizeText: string;
   unit: SizeUnit;
+  /** Characters per preset. */
+  presets: Record<Preset, number>;
   busy: boolean;
   /** The box or the unit differs from the saved values. */
   changed: boolean;
   onSize: (text: string) => void;
+  onPreset: (preset: Preset) => void;
   onUnit: (unit: SizeUnit) => void;
   onSave: () => void;
 }) {
   const { t } = useI18n();
+  const chosen = selectedPreset(sizeText, unit, presets);
   return (
     <form
       className="space-y-3"
@@ -35,6 +60,39 @@ export function SizeCapForm({
         onSave();
       }}
     >
+      <div
+        role="radiogroup"
+        aria-label={t("memorisation-preset-label")}
+        className="flex flex-wrap gap-1.5"
+      >
+        {PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            role="radio"
+            aria-checked={chosen === preset}
+            disabled={busy}
+            className={choiceClass(chosen === preset)}
+            onClick={() => onPreset(preset)}
+          >
+            {t("memorisation-preset-option", {
+              name: t(`memorisation-preset-${preset}`),
+              size: presetSizeIn(presets[preset], unit),
+            })}
+          </button>
+        ))}
+        {/* Custom has no value of its own: pressing it moves the user to the box. */}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={chosen === "custom"}
+          disabled={busy}
+          className={choiceClass(chosen === "custom")}
+          onClick={() => document.getElementById("memorisation-size")?.focus()}
+        >
+          {t("memorisation-preset-custom")}
+        </button>
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-40 min-w-0 max-w-full space-y-1">
           <Label htmlFor="memorisation-size">{t("memorisation-size-label")}</Label>
@@ -61,12 +119,7 @@ export function SizeCapForm({
               role="radio"
               aria-checked={unit === value}
               disabled={busy}
-              className={cn(
-                "min-h-9 rounded-[10px] border px-3 text-ui transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50",
-                unit === value
-                  ? "border-primary/40 bg-selection text-foreground"
-                  : "border-input bg-card text-muted-foreground hover:bg-interactive-hover"
-              )}
+              className={choiceClass(unit === value)}
               onClick={() => isSizeUnit(value) && onUnit(value)}
             >
               {t(`memorisation-unit-${value}`)}

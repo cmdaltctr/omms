@@ -2,12 +2,17 @@ import { estimateTokens } from "./context-budget.js";
 
 export type MemorisationSizeUnit = "characters" | "tokens";
 export type MemorisationRepeat = "add" | "replace";
+export type NoteLength = "short" | "medium" | "long" | "custom";
 
 export interface MemorisationSettings {
   memorisationMaxSize: number;
   memorisationSizeUnit: MemorisationSizeUnit;
   memorisationRepeat: MemorisationRepeat;
   memorisationRerank: boolean;
+  /** The note length presets, in characters. Short < Medium < Long. */
+  memorisationShortSize: number;
+  memorisationMediumSize: number;
+  memorisationLongSize: number;
 }
 
 export interface MemorisationSnapshot {
@@ -17,11 +22,13 @@ export interface MemorisationSnapshot {
   next?: string;
 }
 
+/** A Markdown note: the topic as the first line, then a `##` section per field that has text. */
 export function snapshotText(snapshot: MemorisationSnapshot): string {
-  return (["topic", "done", "doing", "next"] as const)
+  const topic = snapshot.topic?.trim();
+  const sections = (["done", "doing", "next"] as const)
     .filter((key) => snapshot[key]?.trim())
-    .map((key) => `${key[0]!.toUpperCase()}${key.slice(1)}: ${snapshot[key]!.trim()}`)
-    .join("\n");
+    .map((key) => `## ${key[0]!.toUpperCase()}${key.slice(1)}\n${snapshot[key]!.trim()}`);
+  return (topic ? [topic, ...sections] : sections).join("\n\n");
 }
 
 export function memorisationId(
@@ -74,6 +81,90 @@ export function memorisationCapIsValid(maxSize: unknown, unit: unknown): maxSize
 export function memorisationCapError(unit: MemorisationSizeUnit): string {
   const { min, max } = memorisationSizeRange(unit);
   return `memorisationMaxSize must be a whole number from ${min} to ${max} ${unit}`;
+}
+
+type PresetKey = "memorisationShortSize" | "memorisationMediumSize" | "memorisationLongSize";
+
+/** The presets from smallest to largest, with the name each one has in messages. */
+const PRESETS: ReadonlyArray<readonly [Exclude<NoteLength, "custom">, PresetKey, string]> = [
+  ["short", "memorisationShortSize", "Short"],
+  ["medium", "memorisationMediumSize", "Medium"],
+  ["long", "memorisationLongSize", "Long"],
+];
+
+/** A preset value in the cap's unit. Tokens use the same quarter rule as `estimateTokens`, rounded up. */
+export function presetSizeIn(chars: number, unit: MemorisationSizeUnit): number {
+  return unit === "tokens" ? Math.ceil(chars / 4) : chars;
+}
+
+/** A broken preset rule: the key to blame, a message for the user, and the values the key accepts. */
+export interface MemorisationPresetsProblem {
+  key: PresetKey;
+  message: string;
+  accepted: string;
+}
+
+/**
+ * The first broken preset rule, or null when the three values are valid and in order. Each
+ * preset must also be at least one token above the one below it, so the Tokens unit can tell
+ * them apart. For a broken pair, `isSet` picks the key to blame: the one the config sets, or
+ * the lower one when it sets both.
+ */
+export function memorisationPresetsProblem(
+  presets: Record<PresetKey, unknown>,
+  isSet: (key: PresetKey) => boolean = () => true
+): MemorisationPresetsProblem | null {
+  const { min, max } = memorisationSizeRange("characters");
+  const range = `whole numbers from ${min} to ${max} characters`;
+  for (const [, key] of PRESETS) {
+    const value = presets[key];
+    if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) {
+      return {
+        key,
+        message: `${key} must be a whole number from ${min} to ${max} characters`,
+        accepted: range,
+      };
+    }
+  }
+  for (let i = 1; i < PRESETS.length; i++) {
+    const [, lowKey, low] = PRESETS[i - 1]!;
+    const [, highKey, high] = PRESETS[i]!;
+    const blameLow = isSet(lowKey) || !isSet(highKey);
+    const key = blameLow ? lowKey : highKey;
+    const relation = (step: string) =>
+      `${range}, ${step}${blameLow ? "less" : "more"} than ${blameLow ? highKey : lowKey}`;
+    const lowValue = presets[lowKey] as number;
+    const highValue = presets[highKey] as number;
+    if (lowValue >= highValue) {
+      return { key, message: `${low} must be less than ${high}`, accepted: relation("") };
+    }
+    const tokens = presetSizeIn(lowValue, "tokens");
+    if (tokens >= presetSizeIn(highValue, "tokens")) {
+      return {
+        key,
+        message: `${low} and ${high} must differ by at least one token: both are about ${tokens} tokens`,
+        accepted: relation("at least one token "),
+      };
+    }
+  }
+  return null;
+}
+
+/** The first broken preset rule as a plain message, or null when the three values are valid and in order. */
+export function memorisationPresetsError(presets: Record<PresetKey, unknown>): string | null {
+  return memorisationPresetsProblem(presets)?.message ?? null;
+}
+
+/** The preset that the saved cap equals in the saved unit, else `custom`. */
+export function noteLengthFor(settings: MemorisationSettings): {
+  length: NoteLength;
+  maxSize: number;
+  unit: MemorisationSizeUnit;
+} {
+  const unit = settings.memorisationSizeUnit;
+  const maxSize = settings.memorisationMaxSize;
+  const preset = PRESETS.find(([, key]) => presetSizeIn(settings[key], unit) === maxSize);
+  return { length: preset?.[0] ?? "custom", maxSize, unit };
 }
 
 export interface RecallCandidate {

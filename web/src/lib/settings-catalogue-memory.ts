@@ -264,6 +264,33 @@ export const MEMORY_CATALOGUE: readonly CatalogueEntry[] = [
     AFFECTS.memorise
   ),
   row(
+    "memorisationShortSize",
+    "memorisation",
+    "memorisation-settings",
+    "Short note length",
+    "The size of the Short preset, in characters. Short is the note length agents pick for a small note.",
+    "800 characters",
+    AFFECTS.memorise
+  ),
+  row(
+    "memorisationMediumSize",
+    "memorisation",
+    "memorisation-settings",
+    "Medium note length",
+    "The size of the Medium preset, in characters. It must be larger than Short.",
+    "2,000 characters",
+    AFFECTS.memorise
+  ),
+  row(
+    "memorisationLongSize",
+    "memorisation",
+    "memorisation-settings",
+    "Long note length",
+    "The size of the Long preset, in characters. It must be larger than Medium.",
+    "5,000 characters",
+    AFFECTS.memorise
+  ),
+  row(
     "memorisationRepeat",
     "memorisation",
     "memorisation-settings",

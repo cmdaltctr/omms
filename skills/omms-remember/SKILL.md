@@ -9,16 +9,33 @@ Save a short snapshot of the current session in OMMS. Use plain British English 
 
 Do not ask the user questions. Do not write a handover file or a paste-ready prompt.
 
+## Check the note length
+
+Do this before you write. Read the note length with the `memory` tool in mode `help`. When no `memory` tool is listed, run `om-memory-system memory help`.
+
+```text
+memory({ mode: "help" })
+```
+
+Read `memorisation.length` in the reply. It is `short`, `medium`, `long` or `custom`. `memorisation.maxSize` and `memorisation.unit` give the cap. Size the note by the length:
+
+- `short`: at most 3 bullets in each section.
+- `medium`: at most 5 bullets in each section.
+- `long`: at most 8 bullets in each section, and an optional Context section.
+- `custom`: size the note to the cap.
+
+If `help` fails, write a medium note.
+
 ## Write the snapshot
 
 1. Use only what you already hold in the current context. Do not read session history, transcripts, logs, or prior conversation exports.
 2. You may run cheap read-only git commands to confirm the current branch and head commit. Do not inspect diffs, logs, or history to rebuild the session.
 3. Fill these fields from the current context:
-   - `topic`: the project, change, or subject.
-   - `done`: completed work, with task IDs or file names where useful.
-   - `doing`: work in progress. Leave it out when nothing is in progress.
-   - `next`: the next actions and any gate that blocks them.
-4. Omit empty fields. Keep the whole snapshot short enough to stay under the configured memorisation size cap. OMMS never shortens it for you.
+   - `topic`: one short line naming the project, change, or subject.
+   - `done`: completed work as a Markdown `-` bullet list, one fact per bullet, with task IDs or file names where useful.
+   - `doing`: work in progress as a Markdown `-` bullet list. Leave it out when nothing is in progress.
+   - `next`: the next actions and any gate that blocks them, as a Markdown `-` bullet list.
+4. Omit empty fields. Follow the note length rules above. Keep the whole snapshot short enough to stay under the configured memorisation size cap. OMMS never shortens it for you.
 5. Never store secrets: API keys, tokens, passwords, private keys, or other credentials. Do not copy raw secret-bearing output into any field.
 
 ## Save with memorise
@@ -43,7 +60,28 @@ When the user supplies text to memorise, save that text with `content` instead o
 memory({ mode: "memorise", content: "<text the user names>" })
 ```
 
+Text the user dictates word for word is saved unchanged, whatever the note length. Do not shorten it, reformat it or add sections.
+
 Send `content` or the snapshot fields in one call, never both. The tool refuses a call with both. When the user's text already has done, doing and next parts, put them in the snapshot fields.
+
+## Write a note
+
+When you compose a `content` note from context, for example a decision the user asks you to memorise, write a Markdown note. Put a one-line plain title first. Then add `##` sections with bullet lists. Write no paragraph longer than two sentences. Follow the note length rules above.
+
+```text
+Use SQLite for the web cache
+
+## Decision
+- Store the web cache in SQLite.
+
+## Why
+- One file, no server.
+- Tests run without setup.
+
+## Plan
+- Add the table in the next change.
+- Remove the JSON cache after one release.
+```
 
 ## Labels
 

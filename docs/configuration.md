@@ -265,15 +265,20 @@ These settings control [memorisations](using-memory.md#memorise-and-recall):
 exact notes that the `memorise` mode saves and the `recall` mode fetches. They
 are global-only. A project config cannot change them.
 
-| Setting                | Default      | Accepted values                                                      | Meaning                                                                   |
-| ---------------------- | ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `memorisationMaxSize`  | `2000`       | Whole number. 100 to 20000 for `characters`, 25 to 5000 for `tokens` | Largest memorisation that OMMS accepts.                                   |
-| `memorisationSizeUnit` | `characters` | `characters` or `tokens`                                             | The unit of `memorisationMaxSize`.                                        |
-| `memorisationRepeat`   | `add`        | `add` or `replace`                                                   | What happens when a session snapshot is saved again for the same session. |
-| `memorisationRerank`   | `false`      | `true` or `false`                                                    | Experimental. Text recall reorders its matches with the reranker server.  |
+| Setting                  | Default      | Accepted values                                                                       | Meaning                                                                   |
+| ------------------------ | ------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `memorisationMaxSize`    | `2000`       | Whole number. 100 to 20000 for `characters`, 25 to 5000 for `tokens`                  | Largest memorisation that OMMS accepts.                                   |
+| `memorisationSizeUnit`   | `characters` | `characters` or `tokens`                                                              | The unit of `memorisationMaxSize`.                                        |
+| `memorisationShortSize`  | `800`        | Whole number from 100 to 20000, in characters. Less than `memorisationMediumSize`.    | Value of the Short note length preset. About 200 tokens.                  |
+| `memorisationMediumSize` | `2000`       | Whole number from 100 to 20000, in characters. Between Short and Long.                | Value of the Medium note length preset. About 500 tokens.                 |
+| `memorisationLongSize`   | `5000`       | Whole number from 100 to 20000, in characters. Greater than `memorisationMediumSize`. | Value of the Long note length preset. About 1250 tokens.                  |
+| `memorisationRepeat`     | `add`        | `add` or `replace`                                                                    | What happens when a session snapshot is saved again for the same session. |
+| `memorisationRerank`     | `false`      | `true` or `false`                                                                     | Experimental. Text recall reorders its matches with the reranker server.  |
 
 - `tokens` use the same estimate as the memory context budget: UTF-8 bytes divided by 4, rounded up.
 - OMMS checks the size and the unit as a pair. An edit that leaves the number outside the range for its unit is refused, and the previous values stay.
+- The three preset values are in characters. Each token value is the character value divided by 4, rounded up. Short must be less than Medium, and Medium must be less than Long. Each preset must also be at least one token above the one below it. For example, 1,997 and 2,000 are both about 500 tokens, so OMMS refuses them. OMMS refuses an edit that breaks a rule, names the rule, and keeps the previous values.
+- The note length is the preset whose value, in the saved unit, equals `memorisationMaxSize`. Any other cap is `custom`. The `help` mode of the `memory` tool and `om-memory-system memory help` report it as `memorisation.length`, with `maxSize` and `unit`. See [Using memory: Note shape and length](using-memory.md#note-shape-and-length).
 - OMMS measures the stored text, after `<private>` removal and after the snapshot labels are added. A note over the cap is refused and nothing is stored.
 - Lowering the cap never changes records that are already stored. They can still be recalled.
 - `add` keeps every snapshot, each with its own ID. `replace` deletes the earlier snapshot of the same host session and keeps its ID, so an ID that you quoted still works.
@@ -287,6 +292,10 @@ are global-only. A project config cannot change them.
   "memorisationMaxSize": 2000,
   // "characters" or "tokens".
   "memorisationSizeUnit": "characters",
+  // Note length presets, in characters. Short < Medium < Long, each 100 to 20000.
+  "memorisationShortSize": 800,
+  "memorisationMediumSize": 2000,
+  "memorisationLongSize": 5000,
   // "add" keeps every snapshot. "replace" overwrites the earlier snapshot of the same session.
   "memorisationRepeat": "add",
   // Experimental: rerank text recall with the reranker server. Needs its URL and model.
@@ -480,7 +489,7 @@ On OpenCode and Pi the setting does not change what OMMS recalls or injects. On 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoDeleteOldMemories`, `autoCleanupRetentionDays`, the three `memorisation*` settings, the five `reranker*` settings, and the six [profile learning](#profile-learning) settings (`userProfileWithoutEmail`, `userProfileDecayBeforeMerge`, `userProfilePromptDetail`, `userProfileValidationEnabled`, `showUserProfileToasts` and `userProfileDuringCatchUp`). This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoDeleteOldMemories`, `autoCleanupRetentionDays`, the seven `memorisation*` settings, the five `reranker*` settings, and the six [profile learning](#profile-learning) settings (`userProfileWithoutEmail`, `userProfileDecayBeforeMerge`, `userProfilePromptDetail`, `userProfileValidationEnabled`, `showUserProfileToasts` and `userProfileDuringCatchUp`). This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).

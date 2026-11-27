@@ -57,3 +57,4 @@ Local decision records for OMMS maintainers.
 | [051](./051-memory-deletion-is-opt-in.md)                                   | Automatic memory deletion is opt-in                                             | 2026-11-16 | Proposed           |
 | [052](./052-one-profile-learning-pass-for-every-host.md)                    | One profile learning pass for every host                                        | 2026-11-18 | Proposed           |
 | [053](./053-ai-cleanup-remembers-checked-memories.md)                       | AI Cleanup remembers checked memories in a side table                           | 2026-11-20 | Proposed           |
+| [054](./054-memorisations-are-markdown-notes-of-a-chosen-length.md)         | Memorisations are Markdown notes of a chosen length                             | 2026-11-27 | Accepted           |

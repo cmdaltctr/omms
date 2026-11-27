@@ -195,7 +195,7 @@ describe("memory tool: memorise", () => {
     );
     expect(result.output.success).toBe(true);
     expect(result.addCalls[0].content).toBe(
-      "Topic: memorisation proposal\nDone: proposal written\nNext: wait for approval"
+      "memorisation proposal\n\n## Done\nproposal written\n\n## Next\nwait for approval"
     );
     expect(result.addCalls[0].metadata).toMatchObject({
       type: "memorisation",
@@ -720,13 +720,14 @@ describe("memory tool: memorisation size cap", () => {
     expect(fits.output.success).toBe(true);
   });
 
-  it("counts the stored text after <private> removal and after snapshot labels", () => {
+  it("counts the stored text after <private> removal and after snapshot headings", () => {
     const hidden = runScenario(
       run({ mode: "memorise", content: `note <private>${"x".repeat(5000)}</private>` })
     );
     expect(hidden.output.success).toBe(true);
 
-    const labelled = runScenario(run({ mode: "memorise", topic: "x".repeat(95) }), {
+    // "## Done\n" adds 8 characters, so 95 characters of text exceed a cap of 100.
+    const labelled = runScenario(run({ mode: "memorise", done: "x".repeat(95) }), {
       memorisationMaxSize: 100,
     });
     expect(labelled.output.success).toBe(false);
@@ -739,5 +740,67 @@ describe("memory tool: memorisation size cap", () => {
     });
     expect(result.output.success).toBe(false);
     expect(result.output.error).toContain("400 characters");
+  });
+});
+
+describe("memory tool: help reports the note length", () => {
+  it("returns the preset name, cap and unit for a cap of 800 characters", () => {
+    const result = runScenario(run({ mode: "help" }), {
+      memorisationMaxSize: 800,
+      memorisationSizeUnit: "characters",
+    });
+    expect(result.output.success).toBe(true);
+    expect(result.output.memorisation).toEqual({
+      length: "short",
+      maxSize: 800,
+      unit: "characters",
+    });
+  });
+
+  it("reports medium for the default cap and long for 1250 tokens", () => {
+    expect(runScenario(run({ mode: "help" })).output.memorisation).toEqual({
+      length: "medium",
+      maxSize: 2000,
+      unit: "characters",
+    });
+    expect(
+      runScenario(run({ mode: "help" }), {
+        memorisationMaxSize: 1250,
+        memorisationSizeUnit: "tokens",
+      }).output.memorisation
+    ).toEqual({ length: "long", maxSize: 1250, unit: "tokens" });
+  });
+
+  it("reports a custom cap", () => {
+    const result = runScenario(run({ mode: "help" }), { memorisationMaxSize: 3000 });
+    expect(result.output.memorisation.length).toBe("custom");
+  });
+
+  it("uses an edited Short preset: a cap of 1000 characters is short", () => {
+    const result = runScenario(run({ mode: "help" }), {
+      memorisationShortSize: 1000,
+      memorisationMaxSize: 1000,
+    });
+    expect(result.output.memorisation).toEqual({
+      length: "short",
+      maxSize: 1000,
+      unit: "characters",
+    });
+  });
+
+  it("reads the config on every call, so a change applies at the next call", () => {
+    const result = runScenario(
+      `
+${run({ mode: "help" })}
+const first = output;
+const configModule = await import(${JSON.stringify(configUrl)});
+configModule.CONFIG.memorisationMaxSize = 5000;
+${run({ mode: "help" })}
+output = { first: first.memorisation, second: output.memorisation };
+`,
+      { memorisationMaxSize: 800 }
+    );
+    expect(result.output.first.length).toBe("short");
+    expect(result.output.second.length).toBe("long");
   });
 });

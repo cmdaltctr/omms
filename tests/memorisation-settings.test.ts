@@ -271,4 +271,109 @@ describe("memorisation settings", () => {
     expect(result.text).toContain('"memorisationSizeUnit": "tokens"');
     expect(result.text).not.toContain('"memorisationMaxSize"');
   });
+  it("defaults the three preset values and documents them in the template", async () => {
+    const result = await scenario(`
+      return {
+        short: cfg.CONFIG.memorisationShortSize,
+        medium: cfg.CONFIG.memorisationMediumSize,
+        long: cfg.CONFIG.memorisationLongSize,
+        template: cfg.CONFIG_TEMPLATE,
+        snapshot: getSettingsSnapshot(project, cfg).settings,
+      };
+    `);
+    expect([result.short, result.medium, result.long]).toEqual([800, 2000, 5000]);
+    for (const key of ["memorisationShortSize", "memorisationMediumSize", "memorisationLongSize"]) {
+      expect(result.template).toContain(`// "${key}"`);
+      expect(result.snapshot[key]).toMatchObject({ source: "default" });
+    }
+    expect(result.snapshot.memorisationShortSize.value).toBe(800);
+    expect(result.snapshot.memorisationLongSize.value).toBe(5000);
+  });
+
+  it("ignores project preset values and rejects invalid ones in the global file", async () => {
+    const result = await scenario(`
+      mkdirSync(project + "/.opencode", { recursive: true });
+      writeFileSync(project + "/.opencode/omms.jsonc", JSON.stringify({
+        memorisationShortSize: 150,
+        memorisationMediumSize: 300,
+        memorisationLongSize: 600,
+      }));
+      cfg.initConfig(project);
+      const sizes = [
+        cfg.CONFIG.memorisationShortSize,
+        cfg.CONFIG.memorisationMediumSize,
+        cfg.CONFIG.memorisationLongSize,
+      ];
+      const errors = [];
+      for (const value of [
+        { memorisationShortSize: 99 },
+        { memorisationLongSize: 20001 },
+        { memorisationMediumSize: 2.5 },
+        { memorisationShortSize: 3000 },
+      ]) {
+        try { cfg.validateGlobalConfig(value); } catch (error) { errors.push(error.message); }
+      }
+      return { sizes, errors };
+    `);
+    expect(result.sizes).toEqual([800, 2000, 5000]);
+    expect(result.errors).toEqual([
+      "Invalid memorisationShortSize config (accepted: whole numbers from 100 to 20000 characters)",
+      "Invalid memorisationLongSize config (accepted: whole numbers from 100 to 20000 characters)",
+      "Invalid memorisationMediumSize config (accepted: whole numbers from 100 to 20000 characters)",
+      "Invalid memorisationShortSize config (accepted: whole numbers from 100 to 20000 characters, less than memorisationMediumSize)",
+    ]);
+  });
+
+  it("writes and snapshots edited presets from the global file", async () => {
+    const result = await scenario(`
+      await writeGlobalConfigKeys({
+        memorisationShortSize: 1000,
+        memorisationLongSize: 8000,
+      }, readGlobalConfigRevision());
+      return {
+        text: readFileSync(target, "utf8"),
+        settings: getSettingsSnapshot(project, cfg).settings,
+      };
+    `);
+    expect(result.text).toContain('"memorisationShortSize": 1000');
+    expect(result.text).toContain('"memorisationLongSize": 8000');
+    expect(result.text).not.toContain("memorisationMediumSize");
+    expect(result.settings.memorisationShortSize).toMatchObject({
+      value: 1000,
+      globalValue: 1000,
+      source: "global",
+    });
+    expect(result.settings.memorisationLongSize).toMatchObject({ value: 8000, source: "global" });
+  });
+
+  it("refuses an invalid or out-of-order preset edit and keeps the previous values", async () => {
+    const seed = '{\n  "memorisationShortSize": 800,\n  "memorisationMediumSize": 2000\n}\n';
+    const result = await scenario(
+      `
+      const errors = [];
+      for (const edits of [
+        { memorisationShortSize: 3000 },
+        { memorisationMediumSize: 700 },
+        { memorisationLongSize: 1500 },
+        { memorisationShortSize: 99 },
+        { memorisationLongSize: 20001 },
+        { memorisationMediumSize: 2000.5 },
+      ]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(error.message); }
+      }
+      return { errors, text: readFileSync(target, "utf8") };
+    `,
+      seed
+    );
+    expect(result.errors).toEqual([
+      "Short must be less than Medium",
+      "Short must be less than Medium",
+      "Medium must be less than Long",
+      "memorisationShortSize must be a whole number from 100 to 20000 characters",
+      "memorisationLongSize must be a whole number from 100 to 20000 characters",
+      "memorisationMediumSize must be a whole number from 100 to 20000 characters",
+    ]);
+    expect(result.text).toBe(seed);
+  });
 });

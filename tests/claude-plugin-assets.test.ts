@@ -171,6 +171,44 @@ describe("Claude Code plugin assets", () => {
     expect(skill).toContain("om-memory-system memory recall --tags");
   });
 
+  it("omms-remember reads the note length first and gives one sizing rule per length", () => {
+    const skill = readFileSync(join(root, "skills/omms-remember/SKILL.md"), "utf8");
+    expect(skill).toContain("## Check the note length");
+    expect(skill).toContain('memory({ mode: "help" })');
+    expect(skill).toContain("om-memory-system memory help");
+    expect(skill).toContain("memorisation.length");
+    // The check comes before the writing steps.
+    expect(skill.indexOf("## Check the note length")).toBeLessThan(
+      skill.indexOf("## Write the snapshot")
+    );
+    expect(skill).toMatch(/`short`: at most 3 bullets in each section/);
+    expect(skill).toMatch(/`medium`: at most 5 bullets in each section/);
+    expect(skill).toMatch(
+      /`long`: at most 8 bullets in each section, and an optional Context section/
+    );
+    expect(skill).toMatch(/`custom`: size the note to the cap/);
+    // A failed help call falls back to a medium note.
+    expect(skill).toMatch(/If `help` fails, write a medium note/);
+  });
+
+  it("omms-remember writes snapshot fields as bullets and composed notes as titled Markdown", () => {
+    const skill = readFileSync(join(root, "skills/omms-remember/SKILL.md"), "utf8");
+    expect(skill).toMatch(/`topic`: one short line/);
+    for (const field of ["done", "doing", "next"]) {
+      expect(skill).toMatch(new RegExp(`\`${field}\`: [^\\n]*Markdown \`-\` bullet list`));
+    }
+    expect(skill).toMatch(/one fact per bullet/i);
+    // Composed notes: title line, ## sections with bullets, short paragraphs, one example.
+    expect(skill).toContain("## Write a note");
+    expect(skill).toMatch(/one-line plain title/i);
+    expect(skill).toMatch(/no paragraph longer than two sentences/i);
+    for (const heading of ["## Decision", "## Why", "## Plan"]) {
+      expect(skill).toContain(heading);
+    }
+    // Text the user dictates is saved unchanged, whatever the note length.
+    expect(skill).toMatch(/word for word[^\n]*unchanged[^\n]*whatever the note length/i);
+  });
+
   it("omms-memory routes 'the memorisation labelled X' to recall with tags", () => {
     const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
     expect(skill).toMatch(/the memorisation labelled/);

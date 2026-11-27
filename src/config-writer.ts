@@ -105,7 +105,11 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (isProfileLearningKey(key)) return isValidProfileLearningEdit(key, value);
   if (key === "memorisationSizeUnit") return value === "characters" || value === "tokens";
   if (key === "memorisationRerank") return typeof value === "boolean";
+  // The repeat, size and preset rules run in checkMemorisationSettingsEdits.
   if (key === "memorisationRepeat" || key === "memorisationMaxSize") return true;
+  if (["memorisationShortSize", "memorisationMediumSize", "memorisationLongSize"].includes(key)) {
+    return true;
+  }
   // The opening context query: null removes it; an empty query means no opening search.
   if (key === "openingContextQuery") {
     return (

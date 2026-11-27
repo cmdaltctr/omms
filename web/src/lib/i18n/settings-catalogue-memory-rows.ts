@@ -171,6 +171,22 @@ export const settingsCatalogueMemoryRowText = {
     "按字符或词片段计算最大的记忆存档。",
     "يحسب أكبر حفظ بالأحرف أو بقطع الكلمات.",
   ],
+  "Short note length": ["短笔记长度", "طول الملاحظة القصيرة"],
+  "The size of the Short preset, in characters. Short is the note length agents pick for a small note.":
+    [
+      "“短”预设的大小，以字符计。代理为小笔记选用此长度。",
+      "حجم القيمة المسبقة قصير بالأحرف. يختارها الوكلاء لملاحظة صغيرة.",
+    ],
+  "Medium note length": ["中等笔记长度", "طول الملاحظة المتوسطة"],
+  "The size of the Medium preset, in characters. It must be larger than Short.": [
+    "“中”预设的大小，以字符计。必须大于“短”。",
+    "حجم القيمة المسبقة متوسط بالأحرف. يجب أن يكون أكبر من قصير.",
+  ],
+  "Long note length": ["长笔记长度", "طول الملاحظة الطويلة"],
+  "The size of the Long preset, in characters. It must be larger than Medium.": [
+    "“长”预设的大小，以字符计。必须大于“中”。",
+    "حجم القيمة المسبقة طويل بالأحرف. يجب أن يكون أكبر من متوسط.",
+  ],
   "Saving a session again": ["再次保存同一会话", "حفظ الجلسة نفسها مرة أخرى"],
   "Adds a new memorisation or replaces the old one when the same session is saved again.": [
     "同一会话再次保存时，新增一条记忆存档或替换旧的。",
