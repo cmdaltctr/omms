@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.4.0](https://github.com/cmdaltctr/omms/compare/v7.3.2...v7.4.0) (2026-11-27)
+
+
+### Features
+
+* confirm memorisation settings saves before sending ([e2b39d1](https://github.com/cmdaltctr/omms/commit/e2b39d1deb1b562e92fb343bc71d52dc750015aa))
+* render memorisations as Markdown notes with length presets ([03154eb](https://github.com/cmdaltctr/omms/commit/03154eb25f5b7561801e7b95be8492fe8bf0f15f))
+* render memorisations as Markdown notes with length presets ([ca0576e](https://github.com/cmdaltctr/omms/commit/ca0576e602d3110998327468bac460eba96e9846))
+
+
+### Bug Fixes
+
+* address review findings on memorisation presets ([2ccb8fc](https://github.com/cmdaltctr/omms/commit/2ccb8fc4baa31c852f068c755c331ab7bf0c35e0))
+
 ## [7.3.2](https://github.com/cmdaltctr/omms/compare/v7.3.1...v7.3.2) (2026-11-23)
 
 
