@@ -12,6 +12,12 @@ mock.module("react", () => ({
   useMemo: (factory: () => unknown) => factory(),
   useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
   useEffect: () => undefined,
+  // The confirm dialog hook keeps its pending request in state; no dialog is open here.
+  useState: (initial: unknown) => [
+    typeof initial === "function" ? (initial as () => unknown)() : initial,
+    () => {},
+  ],
+  useRef: (initial: unknown) => ({ current: initial }),
 }));
 const { HostStatusHeader } = await import("../src/lib/components/memory/HostStatusHeader");
 const { TurnOnAction } = await import("../src/lib/components/memory/TurnOnAction");

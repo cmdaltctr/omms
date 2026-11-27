@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Switch } from "$lib/components/ui/switch";
@@ -40,6 +44,9 @@ export function MemoryInjectionSection() {
   const [draft, setDraft] = useState<InjectionDraft>(DEFAULT_INJECTION_DRAFT);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status>();
+  // After the card's own state, whose order the section spec relies on.
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const saving = useRef(false);
   // The draft the file held at the last load, so a refresh keeps typed values.
   const loaded = useRef<InjectionDraft>(DEFAULT_INJECTION_DRAFT);
@@ -77,18 +84,42 @@ export function MemoryInjectionSection() {
     setDraft((previous) => ({ ...previous, ...patch }));
 
   const readOnly = snapshot?.readOnly === true;
-  async function save() {
+  /** Asks first, with each setting the save changes. A value back at its default reads Default. */
+  function save() {
     if (!snapshot || !canSave || saving.current) return;
+    const edits = injectionSaveEdits(draft, loaded.current);
+    const saved = loaded.current;
+    const inForce = {
+      openingContext: saved.opening,
+      openingContextQuery: saved.query.trim(),
+      subagentMemory: saved.subagent,
+      "compaction.enabled": saved.restore,
+      "compaction.memoryLimit": saved.limit,
+    };
+    const fields = [
+      { key: "openingContext", default: DEFAULT_INJECTION_DRAFT.opening },
+      { key: "openingContextQuery", default: DEFAULT_INJECTION_DRAFT.query },
+      { key: "subagentMemory", default: DEFAULT_INJECTION_DRAFT.subagent },
+      { key: "compaction.enabled", default: DEFAULT_INJECTION_DRAFT.restore },
+      { key: "compaction.memoryLimit", default: DEFAULT_INJECTION_DRAFT.limit },
+    ].map((field) => ({ ...field, label: name(field.key) }));
+    ask({
+      title: s("Save memory injection?"),
+      body: <SettingsChangeList changes={changes(inForce, edits, fields)} />,
+      confirmLabel: s("Save"),
+      busyLabel: s("Saving…"),
+      run: () => send(edits),
+    });
+  }
+  async function send(edits: Record<string, unknown>): Promise<ConfirmResult> {
+    if (!snapshot || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
     let failure: Error | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({
-          edits: injectionSaveEdits(draft, loaded.current),
-          revision: snapshot.revision,
-        }),
+        body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
     } catch (error) {
       failure = error as Error;
@@ -101,6 +132,7 @@ export function MemoryInjectionSection() {
         ? { kind: "save-failed", message: failure.message, reloaded }
         : { kind: "saved", reloaded }
     );
+    return failure ? { success: false, error: failure.message } : { success: true };
   }
 
   function statusText(current: Status): string {
@@ -290,6 +322,7 @@ export function MemoryInjectionSection() {
           {statusText(status)}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

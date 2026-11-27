@@ -55,6 +55,8 @@ const buttonOf = (tree: Node[], label: string) =>
   byType(tree, Button).find((node) => text(node.props.children).trim() === label)!;
 const patches = () => requests.filter((request) => request.method === "PATCH");
 const dialog = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+/** What the dialog lists: one row per setting the save changes. */
+const rowsOf = (node: Node) => node.props.body.props.changes as unknown[];
 
 async function turnOn(days?: string) {
   let tree = await settle(<MemoryCleanupSection />, own);
@@ -164,16 +166,61 @@ it("refuses to save on when the count is not a number", async () => {
   expect(dialog(tree)!.props.blocked).toBeTruthy();
 });
 
-it("turning it off needs no dialog", async () => {
+it("asks before it turns deletion off, although turning it off deletes nothing", async () => {
   current = snapshot(true);
   let tree = await settle(<MemoryCleanupSection />, own);
   byType(tree, Checkbox)[0]!.props.onCheckedChange(false);
   tree = await settle(<MemoryCleanupSection />, own);
   buttonOf(tree, "Save").props.onClick();
   tree = await settle(<MemoryCleanupSection />, own);
-  expect(dialog(tree)).toBeUndefined();
+  const ask = dialog(tree)!;
+  expect(ask.props.title).toBe("Turn off memory cleanup?");
+  expect(ask.props.confirmLabel).toBe("Save");
+  expect(rowsOf(ask)).toEqual([
+    {
+      key: "autoDeleteOldMemories",
+      label: "Delete old memories automatically",
+      from: "On",
+      to: "Off",
+    },
+  ]);
+  // No count is needed, and nothing is sent before the user confirms.
   expect(requests.some((item) => item.path.includes("preview"))).toBe(false);
+  expect(patches()).toHaveLength(0);
+  // Cancel saves nothing and puts the switch back on.
+  ask.props.onClose();
+  tree = await settle(<MemoryCleanupSection />, own);
+  expect(dialog(tree)).toBeUndefined();
+  expect(patches()).toHaveLength(0);
+  expect(byType(tree, Checkbox)[0]!.props.checked).toBe(true);
+  // The same body as before the rule once the user confirms.
+  byType(tree, Checkbox)[0]!.props.onCheckedChange(false);
+  tree = await settle(<MemoryCleanupSection />, own);
+  buttonOf(tree, "Save").props.onClick();
+  tree = await settle(<MemoryCleanupSection />, own);
+  await dialog(tree)!.props.onConfirm();
   expect(patches()[0]!.body.edits).toEqual({ autoDeleteOldMemories: false });
+});
+
+it("keeps a server refusal inside the turn-off dialog, which stays open", async () => {
+  const REFUSED = "Config changed. Reload settings and save again.";
+  current = snapshot(true);
+  requests = installFetch((request) => {
+    if (request.method === "GET") return { body: current };
+    return { status: 409, body: { error: REFUSED } };
+  });
+  let tree = await settle(<MemoryCleanupSection />, own);
+  byType(tree, Checkbox)[0]!.props.onCheckedChange(false);
+  tree = await settle(<MemoryCleanupSection />, own);
+  buttonOf(tree, "Save").props.onClick();
+  tree = await settle(<MemoryCleanupSection />, own);
+
+  const result = await dialog(tree)!.props.onConfirm();
+  expect(result).toMatchObject({ success: false, error: REFUSED });
+  tree = await settle(<MemoryCleanupSection />, own);
+  expect(dialog(tree)).toBeDefined();
+  expect(patches()).toHaveLength(1);
+  expect(allText(tree)).not.toContain("Saved.");
 });
 
 it("asks again when the days go down while deletion is on", async () => {
@@ -185,7 +232,7 @@ it("asks again when the days go down while deletion is on", async () => {
   tree = await settle(<MemoryCleanupSection />, own);
   expect(dialog(tree)).toBeDefined();
   expect(requests.find((item) => item.path.includes("preview"))!.path).toContain("days=7");
-  // More days is safe: it saves with no dialog.
+  // More days reaches fewer memories: it asks with the change list, not the count.
   resetRender();
   requests.length = 0;
   tree = await settle(<MemoryCleanupSection />, own);
@@ -193,8 +240,42 @@ it("asks again when the days go down while deletion is on", async () => {
   tree = await settle(<MemoryCleanupSection />, own);
   buttonOf(tree, "Save").props.onClick();
   tree = await settle(<MemoryCleanupSection />, own);
-  expect(dialog(tree)).toBeUndefined();
+  const raise = dialog(tree)!;
+  expect(raise.props.title).toBe("Save memory cleanup?");
+  expect(rowsOf(raise)).toEqual([
+    {
+      key: "autoCleanupRetentionDays",
+      label: "Days before a memory is old",
+      from: "30 days",
+      to: "60 days",
+    },
+  ]);
+  expect(requests.some((item) => item.path.includes("preview"))).toBe(false);
+  expect(patches()).toHaveLength(0);
+  await raise.props.onConfirm();
   expect(patches()[0]!.body.edits).toEqual({ autoCleanupRetentionDays: 60 });
+});
+
+it("asks with the save title when only the days change while deletion is off", async () => {
+  let tree = await settle(<MemoryCleanupSection />, own);
+  byType(tree, Input)[0]!.props.onChange({ target: { value: "60" } });
+  tree = await settle(<MemoryCleanupSection />, own);
+  buttonOf(tree, "Save").props.onClick();
+  tree = await settle(<MemoryCleanupSection />, own);
+
+  // Nothing turns off here, so the title must not say so.
+  const ask = dialog(tree)!;
+  expect(ask.props.title).toBe("Save memory cleanup?");
+  expect(rowsOf(ask)).toEqual([
+    {
+      key: "autoCleanupRetentionDays",
+      label: "Days before a memory is old",
+      from: "30 days",
+      to: "60 days",
+    },
+  ]);
+  expect(requests.some((item) => item.path.includes("preview"))).toBe(false);
+  expect(patches()).toHaveLength(0);
 });
 
 it("shows a message next to the days field for an invalid number", async () => {

@@ -75,7 +75,7 @@ On the Settings page these actions SHALL confirm first: the host model Save, the
 
 ### Requirement: Every settings card saves the same way
 
-Each settings card with a server SHALL test the values in the form, not the saved values. Each card SHALL save with a Save button, not on leaving a field, SHALL confirm with the shared settings confirm dialog before it saves, and SHALL show a plain message after each test and save. A Save that tests first SHALL test, then confirm; when the test cannot reach the server, the existing Save anyway dialog SHALL be the confirmation. An optional URL or model field SHALL be clearable, which removes the key. Every URL field SHALL accept only `http://` or `https://` URLs. An invalid number SHALL show a message next to the field.
+Each settings card with a server SHALL test the values in the form, not the saved values. Each card SHALL save with a Save button, not on leaving a field, SHALL confirm with the shared settings confirm dialog before it saves, and SHALL show a plain message after each test and save. A Save that tests first SHALL test, then confirm; when the test cannot reach the server, the existing Save anyway dialog SHALL be the confirmation.
 
 #### Scenario: Testing an unsaved model
 
@@ -91,6 +91,11 @@ Each settings card with a server SHALL test the values in the form, not the save
 
 - **WHEN** the user saves `api.example.com/v1` as the API URL
 - **THEN** the save SHALL be refused with a message that the URL must start with `http://` or `https://`
+
+#### Scenario: An invalid number
+
+- **WHEN** the user enters a value that is not a valid number in a number field and selects Save
+- **THEN** a message SHALL show next to the field, and no confirm dialog SHALL open
 
 ### Requirement: The page controls automatic import
 

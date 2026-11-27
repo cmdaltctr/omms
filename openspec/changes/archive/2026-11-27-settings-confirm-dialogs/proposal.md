@@ -36,7 +36,7 @@ None.
 
 ## Impact
 
-- Web only, in `web/src/lib/components/settings/`, `web/src/lib/components/memory/` and `web/src/lib/components/skills/use-skill-settings.ts`. These use the existing `web/src/hooks/useSettingsConfirm.tsx` and `web/src/lib/components/settings/SettingsConfirmDialog.tsx`, plus one small shared helper that lists the changed settings.
+- Web only, in `web/src/lib/components/settings/`, `web/src/lib/components/memory/` and `web/src/lib/components/skills/use-skill-settings.ts`. These use the existing `web/src/hooks/useSettingsConfirm.tsx` and `web/src/lib/components/settings/SettingsConfirmDialog.tsx`, plus three small shared pieces: the helper `web/src/lib/settings-changes.ts`, its hook `web/src/hooks/useSettingsChanges.ts`, and `web/src/lib/components/settings/SettingsChangeList.tsx`.
 - Translation tables in `web/src/lib/i18n/` (English, Chinese, Arabic).
 - Tests in `web/tests/` for each card: no request before confirm, Cancel sends nothing, confirm sends the same body as today, and a server error stays in the dialog. Existing tests that expect an immediate request are updated to confirm first, without weakening what they check.
 - Docs: `docs/web-ui-settings.md`, `docs/web-ui-memory.md`, `web/AGENTS.md`.

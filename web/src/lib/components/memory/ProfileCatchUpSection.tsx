@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { settingsRequest } from "$lib/settings-api";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
 import { useSettingsText } from "$lib/i18n/settings";
 import { AutoCleanupSettings } from "./AutoCleanupSettings";
 
@@ -75,6 +76,7 @@ export function ProfileCatchUpSection({ onReanalyse }: { onReanalyse?: () => voi
   const [local, setLocal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { ask, dialog } = useSettingsConfirm();
 
   async function load() {
     const value = await settingsRequest<{ preview: CatchUpPreview; job: CatchUpJob }>(
@@ -118,17 +120,29 @@ export function ProfileCatchUpSection({ onReanalyse }: { onReanalyse?: () => voi
     }
     setBusy(false);
   }
-  async function pause() {
-    try {
-      setJob(
-        await settingsRequest<CatchUpJob>("/api/settings/profile/catch-up/pause", {
-          method: "POST",
-          body: "{}",
-        })
-      );
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
+  /** A job action: asks first, with one sentence that says what pausing does. */
+  function pause() {
+    ask({
+      title: s("Pause the catch-up run?"),
+      body: <p>{s("This pauses the catch-up run, so no model calls run until you resume it.")}</p>,
+      confirmLabel: s("Pause"),
+      busyLabel: s("Pausing…"),
+      run: async () => {
+        try {
+          setJob(
+            await settingsRequest<CatchUpJob>("/api/settings/profile/catch-up/pause", {
+              method: "POST",
+              body: "{}",
+            })
+          );
+          setError("");
+          return { success: true };
+        } catch (cause) {
+          setError((cause as Error).message);
+          return { success: false, error: (cause as Error).message };
+        }
+      },
+    });
   }
 
   return (
@@ -177,6 +191,7 @@ export function ProfileCatchUpSection({ onReanalyse }: { onReanalyse?: () => voi
         ))}
       {error && <p role="alert">{error}</p>}
       <AutoCleanupSettings />
+      {dialog}
     </section>
   );
 }

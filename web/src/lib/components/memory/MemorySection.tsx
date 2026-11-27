@@ -6,9 +6,13 @@ import {
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { useSettingsText } from "$lib/i18n/settings";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import { findCatalogueEntry, PLAIN_TEXT } from "$lib/settings-catalogue";
@@ -50,6 +54,8 @@ export function MemorySection() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<MemoryStatus>();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const saving = useRef(false);
   useEffect(() => {
     let active = true;
@@ -83,20 +89,44 @@ export function MemorySection() {
     "Edit ~/.config/omms/omms.jsonc directly to set these limits without the web UI."
   ).split(configPath);
   const readOnly = snapshot?.readOnly === true;
-  async function save() {
+  // The values in force, keyed as the request spells them, so the dialog lists the same
+  // numbers the card compares a draft against.
+  const inForce = Object.fromEntries(
+    MEMORY_CONTROLS.map((control) => [control.key, loaded[control.key] ?? control.default])
+  );
+  const fields = MEMORY_CONTROLS.map((control) => ({
+    key: control.key,
+    label: name(control.key),
+    default: control.default,
+    print: (value: unknown) =>
+      typeof value === "number" ? formatMemoryDefault(value) : String(value ?? ""),
+  }));
+  function save() {
     if (!snapshot || !canSave || saving.current) return;
     const edits = memorySaveEdits(draft, loaded);
     if (!Object.keys(edits).length) return;
-    await saveEdits(edits);
+    ask({
+      title: s("Save memory limits?"),
+      body: <SettingsChangeList changes={changes(inForce, edits, fields)} />,
+      confirmLabel: s("Save memory limits"),
+      busyLabel: s("Saving…"),
+      run: () => saveEdits(edits),
+    });
   }
   /** Reset one row: null on the wire removes the key so the default applies again. */
-  async function reset(key: MemoryControlKey) {
+  function reset(key: MemoryControlKey) {
     if (!snapshot || busy || saving.current) return;
     if (!snapshot.settings[key]?.hasGlobal) return;
-    await saveEdits({ [key]: null });
+    ask({
+      title: s("Reset to default?"),
+      body: <SettingsChangeList changes={changes(inForce, { [key]: null }, fields)} />,
+      confirmLabel: s("Reset to default"),
+      busyLabel: s("Saving…"),
+      run: () => saveEdits({ [key]: null }),
+    });
   }
-  async function saveEdits(edits: Record<string, unknown>) {
-    if (!snapshot || saving.current) return;
+  async function saveEdits(edits: Record<string, unknown>): Promise<ConfirmResult> {
+    if (!snapshot || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
     let saved = false;
@@ -120,12 +150,14 @@ export function MemorySection() {
         return next;
       });
       setStatus({ kind: "saved", reloaded });
-    } else
-      setStatus({
-        kind: "save-failed",
-        failure: classifyMemorySaveFailure(failure?.message ?? ""),
-        reloaded,
-      });
+      return { success: true };
+    }
+    setStatus({
+      kind: "save-failed",
+      failure: classifyMemorySaveFailure(failure?.message ?? ""),
+      reloaded,
+    });
+    return { success: false, error: s(failure?.message ?? "") };
   }
   function statusText(current: MemoryStatus): string {
     if (current.kind === "load-failed")
@@ -305,6 +337,7 @@ export function MemorySection() {
           {statusText(status)}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

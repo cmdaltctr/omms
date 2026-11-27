@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
 import { settingsRequest } from "$lib/settings-api";
 import { saveSettingEdits } from "$lib/settings-save";
 import { useSettingsText } from "$lib/i18n/settings";
@@ -21,6 +24,8 @@ type LoginItem = { state: string; command?: string };
 export function WebAppSection() {
   const s = useSettingsText();
   const t = useCardText();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
   const [item, setItem] = useState<LoginItem>();
   const [version, setVersion] = useState<VersionInfo>();
@@ -49,20 +54,32 @@ export function WebAppSection() {
 
   const saved = Boolean(snapshot?.settings.webServerAutoStart?.globalValue);
   const enabled = edit ?? saved;
-  async function save() {
+  /** Asks first, with the changed setting and its new value. The card's own feedback stays. */
+  function save() {
     if (!snapshot || edit === undefined || edit === saved) return;
-    setBusy(true);
-    const result = await saveSettingEdits(snapshot.revision, { webServerAutoStart: edit });
-    setBusy(false);
-    setFailed(!result.success);
-    if (result.success) setEdit(undefined);
-    setMessage(
-      result.success
-        ? s(
-            "Saved. The login item changes at the next OpenCode or Pi start, or right away with the commands below. With Claude Code alone, run the command yourself."
-          )
-        : (result.error ?? "")
-    );
+    const body = { webServerAutoStart: edit };
+    const fields = [{ key: "webServerAutoStart", label: name("webServerAutoStart") }];
+    ask({
+      title: t("Save web app settings?"),
+      body: <SettingsChangeList changes={changes({ webServerAutoStart: saved }, body, fields)} />,
+      confirmLabel: t("Save"),
+      busyLabel: t("Saving…"),
+      run: async () => {
+        setBusy(true);
+        const result = await saveSettingEdits(snapshot.revision, body);
+        setBusy(false);
+        setFailed(!result.success);
+        if (result.success) setEdit(undefined);
+        setMessage(
+          result.success
+            ? s(
+                "Saved. The login item changes at the next OpenCode or Pi start, or right away with the commands below. With Claude Code alone, run the command yourself."
+              )
+            : (result.error ?? "")
+        );
+        return result;
+      },
+    });
   }
   return (
     <section
@@ -93,7 +110,7 @@ export function WebAppSection() {
           disabled={
             busy || !snapshot || snapshot.readOnly === true || edit === undefined || edit === saved
           }
-          onClick={() => void save()}
+          onClick={() => save()}
         >
           {t("Save")}
         </Button>
@@ -129,6 +146,7 @@ export function WebAppSection() {
           {message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

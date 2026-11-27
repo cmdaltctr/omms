@@ -153,7 +153,18 @@ const text = {
     "已保存。更改将在下一次学习时生效。",
     "تم الحفظ. تنطبق التغييرات في جولة التعلّم التالية.",
   ],
+  "Save automatic profile cleanup?": [
+    "保存自动画像清理设置？",
+    "حفظ التنظيف التلقائي للملف الشخصي؟",
+  ],
+  prompts: ["个提示", "مطالبة"],
   "Analyse waiting prompts": ["分析等待处理的提示", "تحليل المطالبات المنتظرة"],
+  "Pause the catch-up run?": ["暂停补齐任务？", "إيقاف مهمة اللحاق مؤقتاً؟"],
+  "This pauses the catch-up run, so no model calls run until you resume it.": [
+    "这会暂停补齐任务，在你恢复之前不会进行任何模型调用。",
+    "يوقف هذا مهمة اللحاق مؤقتاً، فلن تُنفَّذ أي استدعاءات نموذج حتى تستأنفها.",
+  ],
+  "Pausing…": ["正在暂停…", "جارٍ الإيقاف المؤقت…"],
   "Re-analyse chat history": ["重新分析聊天记录", "إعادة تحليل سجل المحادثات"],
   "Analyse waiting prompts reads prompts already inside OMMS with the saved external API, 50 eligible prompts per analysis call. Completed history is not re-analysed. Preferences, patterns, and workflows are the outputs.":
     [
@@ -240,6 +251,7 @@ const text = {
     "لا توجد في Pi نماذج مسجَّل الدخول إليها. سجّل الدخول إلى مزوّد في Pi ثم أعد تحميل هذه الصفحة.",
   ],
   "Save model": ["保存模型", "حفظ النموذج"],
+  "Save the {host} model?": ["保存 {host} 模型？", "حفظ نموذج {host}؟"],
   "Enter a model as provider/model.": [
     "按 提供商/模型 格式输入。",
     "أدخل النموذج بصيغة المزوّد/النموذج.",
@@ -381,6 +393,8 @@ const text = {
     ],
   "Import past chats automatically": ["自动导入过去的对话", "استيراد المحادثات السابقة تلقائياً"],
   "Backfill model": ["历史导入模型", "نموذج استيراد السجل"],
+  "Save the backfill model?": ["保存历史导入模型？", "حفظ نموذج استيراد السجل؟"],
+  "Turn automatic import off?": ["关闭自动导入？", "إيقاف الاستيراد التلقائي؟"],
   "Same as live capture": ["与实时捕获相同", "مثل الالتقاط المباشر"],
   "Saved. Changes apply at the next host start.": [
     "已保存。更改在下次启动主机时生效。",
@@ -709,6 +723,7 @@ const text = {
     "已保存。新记忆将使用此语言。",
     "تم الحفظ. ستستخدم الذكريات الجديدة هذه اللغة.",
   ],
+  "Change the summary language?": ["更改摘要语言？", "تغيير لغة الملخص؟"],
   "Claude Code folder": ["Claude Code 文件夹", "مجلد Claude Code"],
   "Set this when Claude Code does not use ~/.claude, for example when you start it with CLAUDE_CONFIG_DIR. Leave it empty to use the default.":
     [
@@ -716,6 +731,7 @@ const text = {
       "اضبط هذا عندما لا يستخدم Claude Code المجلد ‎~/.claude، مثلاً عند تشغيله مع CLAUDE_CONFIG_DIR. اتركه فارغاً لاستخدام المجلد الافتراضي.",
     ],
   "Save folder": ["保存文件夹", "حفظ المجلد"],
+  "Save the Claude Code folder?": ["保存 Claude Code 文件夹？", "حفظ مجلد Claude Code؟"],
   "Transcripts folder in use": ["正在使用的会话记录文件夹", "مجلد سجلات الجلسات المستخدم"],
   From: ["来源", "المصدر"],
   "this setting": ["此设置", "هذا الإعداد"],
@@ -1001,6 +1017,10 @@ const text = {
       "احتفظ بالخريطة بعد استيراد جلساتها. يفحص كل استيراد الخريطة قبل أن يتجاوز جلسة، لذا فإن حذف الخريطة يجعل جلساتها غير محلولة مجدداً في التشغيل التالي.",
     ],
   "Save removals": ["保存删除", "حفظ عمليات الحذف"],
+  "Save removals?": ["保存删除？", "حفظ عمليات الحذف؟"],
+  maps: ["个映射", "خرائط"],
+  "1 map": ["1 个映射", "خريطة واحدة"],
+  "{count} maps": ["{count} 个映射", "{count} خرائط"],
   "Settings changed elsewhere. Check the list and try again.": [
     "设置已在其他位置更改。请检查列表后再试。",
     "تغيّرت الإعدادات في مكان آخر. راجع القائمة، ثم حاول مجدداً.",
@@ -1032,6 +1052,16 @@ const text = {
   "The directory could not be restored. Try again.": [
     "无法恢复该目录。请重试。",
     "تعذّرت استعادة المجلد. حاول مجدداً.",
+  ],
+  "Ignore this folder?": ["忽略此文件夹？", "أتجاهل هذا المجلد؟"],
+  "The folder stays unimported and leaves the unresolved counts.": [
+    "该文件夹保持未导入，并且不计入未解析数量。",
+    "يظل المجلد دون استيراد ولا يُحسب ضمن الأعداد غير المحلولة.",
+  ],
+  "Restore this folder?": ["恢复此文件夹？", "أستعيد هذا المجلد؟"],
+  "The folder shows again in each host list that reported it.": [
+    "该文件夹会重新出现在报告它的每个主机列表中。",
+    "يظهر المجلد مجدداً في قائمة كل مضيف أبلغ عنه.",
   ],
   "Saved, but the list could not be refreshed. Refresh the list without saving again.": [
     "已保存，但无法刷新列表。请刷新列表，无需再次保存。",
@@ -1143,6 +1173,8 @@ const text = {
     "عدّل الملف ~/.config/omms/omms.jsonc مباشرة لضبط هذه الحدود دون واجهة الويب.",
   ],
   "Save memory limits": ["保存记忆限制", "حفظ حدود الذاكرة"],
+  "Save memory limits?": ["保存记忆限制？", "حفظ حدود الذاكرة؟"],
+  "Reset to default?": ["恢复默认值？", "الإعادة إلى الافتراضي؟"],
   "Saved. New memory operations use these limits.": [
     "已保存。新的记忆操作将使用这些限制。",
     "تم الحفظ. ستستخدم عمليات الذاكرة الجديدة هذه الحدود.",
@@ -1173,6 +1205,7 @@ const text = {
   "Reset to default": ["恢复默认", "إعادة إلى الافتراضي"],
   "Differs from default": ["与默认值不同", "يختلف عن الافتراضي"],
   "Keyword matching": ["关键词匹配", "مطابقة الكلمات"],
+  "Save keyword matching?": ["保存关键词匹配设置？", "حفظ إعدادات مطابقة الكلمات؟"],
   "Search finds memories by meaning and by exact words from your prompt.": [
     "搜索按含义和提示中的确切词语查找记忆。",
     "يجد البحث الذكريات بالمعنى وبالكلمات الدقيقة من مطالبتك.",
@@ -1210,6 +1243,7 @@ const text = {
     "تعذّر تحميل إعداد مطابقة الكلمات. أعد تحميل الصفحة للمحاولة مرة أخرى.",
   ],
   Reranker: ["重排序器", "إعادة الترتيب"],
+  "Save the reranker settings?": ["保存重排序器设置？", "حفظ إعدادات معيد الترتيب؟"],
   "Use a reranker": ["使用重排序器", "استخدم معيد الترتيب"],
   Key: ["密钥", "المفتاح"],
   Timeout: ["超时", "مهلة الانتهاء"],
@@ -1370,6 +1404,7 @@ const text = {
     "已保存。下一个会话将使用这些选项。",
     "تم الحفظ. ستستخدم الجلسة التالية هذه الخيارات.",
   ],
+  "Save memory injection?": ["保存记忆注入设置？", "حفظ إعدادات حقن الذاكرة؟"],
   "The memory injection settings could not be loaded. Reload the page to try again.": [
     "无法加载记忆注入设置。请重新加载页面后重试。",
     "تعذّر تحميل إعدادات حقن الذاكرة. أعد تحميل الصفحة للمحاولة مرة أخرى.",
@@ -1488,6 +1523,28 @@ const text = {
   ],
   "Upload image": ["上传图片", "رفع صورة"],
   "Use external API": ["使用外部 API", "استخدام واجهة API الخارجية"],
+  "Use the external API?": ["使用外部 API？", "استخدام واجهة API الخارجية؟"],
+  "{host} will use the external API model to import past chats. It can then run with no host open.":
+    [
+      "{host} 将使用外部 API 模型导入过去的对话。之后无需打开主机即可运行。",
+      "سيستخدم {host} نموذج واجهة API الخارجية لاستيراد المحادثات السابقة. ويمكنه بعد ذلك العمل دون فتح المضيف.",
+    ],
+  "Pause automatic import?": ["暂停自动导入？", "إيقاف الاستيراد التلقائي مؤقتاً؟"],
+  "Automatic import stops after the current exchange, and no automatic run starts until you resume it.":
+    [
+      "自动导入会在当前这轮交流后停止，在你恢复之前不会开始新的自动运行。",
+      "يتوقف الاستيراد التلقائي بعد التبادل الحالي، ولا يبدأ أي تشغيل تلقائي حتى تستأنفه.",
+    ],
+  "Resume automatic import?": ["恢复自动导入？", "استئناف الاستيراد التلقائي؟"],
+  "Automatic import starts again and makes model calls, which can cost money.": [
+    "自动导入会再次开始并调用模型，可能会产生费用。",
+    "يبدأ الاستيراد التلقائي من جديد ويستدعي النموذج، وقد يكلّف ذلك مالاً.",
+  ],
+  "Retry the import?": ["重试导入？", "إعادة محاولة الاستيراد؟"],
+  "The import runs again, so it calls the model again and can cost money.": [
+    "导入会再次运行，因此会再次调用模型，可能会产生费用。",
+    "يعمل الاستيراد مرة أخرى، لذا يستدعي النموذج مرة أخرى وقد يكلّف ذلك مالاً.",
+  ],
   settings: ["设置", "الإعدادات"],
   "{saved} saved · {ignored} ignored": [
     "已保存 {saved} · 已忽略 {ignored}",
@@ -1516,6 +1573,7 @@ const text = {
     "تعذّر تحميل أحدث الإعدادات. أعد تحميل الصفحة قبل الحفظ مرة أخرى.",
   ],
   "Learning settings": ["学习设置", "إعدادات التعلّم"],
+  "Save learning settings?": ["保存学习设置？", "حفظ إعدادات التعلّم؟"],
   "Wait until the current save finishes.": ["请等当前保存完成。", "انتظر حتى ينتهي الحفظ الحالي."],
   "The settings have not loaded yet.": ["设置尚未加载。", "لم يتم تحميل الإعدادات بعد."],
   "Change a setting to turn on Save.": [

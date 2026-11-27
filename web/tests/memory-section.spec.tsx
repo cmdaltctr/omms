@@ -35,6 +35,8 @@ mock.module("react", () => ({
   },
 }));
 const { MemorySection } = await import("../src/lib/components/memory/MemorySection.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { Input } = await import("../src/lib/components/ui/input.tsx");
 const { findCatalogueEntry, PLAIN_TEXT } = await import("../src/lib/settings-catalogue.ts");
@@ -111,6 +113,15 @@ const button = (label: string, nodes: Node[]) =>
   )!;
 const input = (nodes: Node[], id: string) =>
   nodes.find((node) => node.type === Input && node.props.id === id)!;
+/** A fresh render of the card, with the shared hook cursor reset as `tree` does. */
+const shown = (): Node[] => {
+  cursor = 0;
+  return find(MemorySection(), () => true);
+};
+/** The card's confirm dialog, once a save or reset has asked for one. */
+const dialogOf = (nodes: Node[]) => nodes.find((node) => node.type === SettingsConfirmDialog)!;
+const rowsOf = (dialog: Node) => dialog.props.body.props.changes as unknown[];
+const patches = () => calls.filter((call) => call.init?.method === "PATCH");
 
 type Call = { url: string; init?: RequestInit };
 const realFetch = globalThis.fetch;
@@ -412,6 +423,91 @@ it("shows the Differs from default marker only on rows whose saved value differs
   expect(renderToStaticMarkup(<MemorySection />)).not.toContain("Differs from default");
 });
 
+it("asks before it saves the limits, and sends nothing until the user confirms", async () => {
+  stubFetch((call) =>
+    call.url === "/api/settings" && call.init?.method === "PATCH"
+      ? Response.json({}, { status: 200 })
+      : Response.json(snapshotFixture())
+  );
+  const nodes = tree({ maxMemories: "2", retrievalMaxTokens: "3000" });
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  expect(dialog.props.title).toBe("Save memory limits?");
+  expect(dialog.props.confirmLabel).toBe("Save memory limits");
+  expect(rowsOf(dialog)).toEqual([
+    { key: "maxMemories", label: "Memories per search", from: "10", to: "2" },
+    { key: "retrievalMaxTokens", label: "Memory text per prompt", from: "2,000", to: "3,000" },
+  ]);
+  expect(patches()).toHaveLength(0);
+});
+
+it("sends nothing on Cancel, and the drafts stay in the inputs", () => {
+  stubFetch(() => {
+    throw new Error("no request expected");
+  });
+  const nodes = tree({ maxMemories: "2" });
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  (dialog.props.onClose as () => void)();
+  expect(calls).toEqual([]);
+  expect(states[1]).toEqual({ maxMemories: "2" });
+  const after = shown();
+  expect(input(after, "memory-maxMemories-input").props.value).toBe("2");
+  expect(dialogOf(after)).toBeUndefined();
+});
+
+it("asks before it resets one row, and shows the saved value and the default", async () => {
+  stubFetch((call) =>
+    call.url === "/api/settings" && call.init?.method === "PATCH"
+      ? Response.json({}, { status: 200 })
+      : Response.json(snapshotFixture())
+  );
+  states = [
+    snapshotFixture({
+      maxMemories: { value: 6, source: "global", globalValue: 6, hasGlobal: true },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  const nodes = find(MemorySection(), () => true);
+  const reset = nodes.find(
+    (node) => node.type === Button && node.props["data-reset"] === "maxMemories"
+  )!;
+  (reset.props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  expect(dialog.props.title).toBe("Reset to default?");
+  expect(dialog.props.confirmLabel).toBe("Reset to default");
+  expect(rowsOf(dialog)).toEqual([
+    { key: "maxMemories", label: "Memories per search", from: "6", to: "Default (10)" },
+  ]);
+  expect(patches()).toHaveLength(0);
+  (dialog.props.onClose as () => void)();
+  expect(patches()).toHaveLength(0);
+});
+
+it("keeps a server refusal inside the dialog, which stays open", async () => {
+  stubFetch((call) =>
+    call.init?.method === "PATCH"
+      ? Response.json({ error: "Config changed. Reload settings and save again." }, { status: 409 })
+      : Response.json(snapshotFixture())
+  );
+  const nodes = tree({ retrievalMaxTokens: "3000" });
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  const result = await (
+    dialog.props.onConfirm as () => Promise<{ success: boolean; error?: string }>
+  )();
+  expect(result).toEqual({
+    success: false,
+    error: "Config changed. Reload settings and save again.",
+  });
+  expect(dialogOf(shown())).toBeDefined();
+  // The draft stays for review.
+  expect(states[1]).toEqual({ retrievalMaxTokens: "3000" });
+});
+
 it("sends null for the reset row and reloads the shared snapshot", async () => {
   stubFetch((call) =>
     call.url === "/api/settings" && call.init?.method === "PATCH"
@@ -431,7 +527,9 @@ it("sends null for the reset row and reloads the shared snapshot", async () => {
   const reset = nodes.find(
     (node) => node.type === Button && node.props["data-reset"] === "maxMemories"
   )!;
-  await (reset.props.onClick as () => Promise<void>)();
+  (reset.props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
   await flush();
   const patch = calls.find((call) => call.init?.method === "PATCH");
   expect(JSON.parse(String(patch?.init?.body))).toEqual({
@@ -475,7 +573,11 @@ it("saves through the shared settings flow and refreshes the revision", async ()
         )
   );
   const nodes = tree({ maxMemories: "2", retrievalMaxTokens: "3000" });
-  await (button("Save memory limits", nodes).props.onClick as () => void)();
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  // The real dialog closes itself once the request succeeds.
+  (dialog.props.onClose as () => void)();
   await flush();
   const patch = calls.find((call) => call.init?.method === "PATCH");
   expect(patch?.url).toBe("/api/settings");
@@ -506,7 +608,9 @@ it("translates stale-revision save failures and retranslates on language switch"
       : Response.json(snapshotFixture())
   );
   const nodes = tree({ retrievalMaxTokens: "3000" });
-  await (button("Save memory limits", nodes).props.onClick as () => void)();
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
   await flush();
   // The identity is captured, never the raw or translated string.
   expect(states[3]).toEqual({
@@ -516,6 +620,8 @@ it("translates stale-revision save failures and retranslates on language switch"
   });
   // The draft stays for review.
   expect(states[1]).toEqual({ retrievalMaxTokens: "3000" });
+  // The refusal keeps the dialog open; the user then closes it.
+  (dialog.props.onClose as () => void)();
   setLanguage("en");
   cursor = 0;
   expect(renderToStaticMarkup(<MemorySection />)).toContain(
@@ -556,8 +662,12 @@ it("prevents duplicate submissions while a save runs", async () => {
     return Response.json(snapshotFixture());
   });
   const nodes = tree({ retrievalMaxTokens: "3000" });
-  const save = button("Save memory limits", nodes).props.onClick as () => Promise<void>;
-  const inFlight = save();
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const inFlight = (
+    dialogOf(shown()).props.onConfirm as () => Promise<{
+      success: boolean;
+    }>
+  )();
   const busyNodes = tree({ retrievalMaxTokens: "3000" }, true);
   expect(button("Save memory limits", busyNodes).props.disabled).toBe(true);
   expect(button("Cancel", busyNodes).props.disabled).toBe(true);
@@ -602,13 +712,16 @@ it("maps invalid five-setting rejections to translated accepted values", async (
       : Response.json(snapshotFixture())
   );
   const nodes = tree({ maxMemories: "2" });
-  await (button("Save memory limits", nodes).props.onClick as () => void)();
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
   await flush();
   expect(states[3]).toEqual({
     kind: "save-failed",
     failure: { kind: "invalid", key: "retrievalMaxTokens" },
     reloaded: true,
   });
+  (dialog.props.onClose as () => void)();
   setLanguage("zh");
   cursor = 0;
   const html = renderToStaticMarkup(<MemorySection />);
@@ -627,13 +740,16 @@ it("shows a translated generic message for unknown server and network failures",
       : Response.json(snapshotFixture())
   );
   const nodes = tree({ retrievalMaxTokens: "3000" });
-  await (button("Save memory limits", nodes).props.onClick as () => void)();
+  (button("Save memory limits", nodes).props.onClick as () => void)();
+  const dialog = dialogOf(shown());
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
   await flush();
   expect(states[3]).toEqual({
     kind: "save-failed",
     failure: { kind: "unknown" },
     reloaded: true,
   });
+  (dialog.props.onClose as () => void)();
   setLanguage("ar");
   cursor = 0;
   const html = renderToStaticMarkup(<MemorySection />);
@@ -648,13 +764,19 @@ it("shows a translated generic message for unknown server and network failures",
   setLanguage("zh");
   const retry = tree({ retrievalMaxTokens: "3000" });
   const submit = retry.find((node) => node.type === Button && node.props.type === "submit")!;
-  await (submit.props.onClick as () => void)();
+  (submit.props.onClick as () => void)();
+  await (
+    dialogOf(shown()).props.onConfirm as () => Promise<{
+      success: boolean;
+    }>
+  )();
   await flush();
   expect(states[3]).toEqual({
     kind: "save-failed",
     failure: { kind: "unknown" },
     reloaded: true,
   });
+  (dialogOf(shown()).props.onClose as () => void)();
   cursor = 0;
   const html2 = renderToStaticMarkup(<MemorySection />);
   expect(html2).toContain("无法保存记忆设置。");
@@ -671,9 +793,11 @@ it("guards a second submission from the same render to one PATCH", async () => {
   const nodes = tree({ retrievalMaxTokens: "3000" });
   const save = button("Save memory limits", nodes).props.onClick as () => void;
   // Both invocations run from the same render, before any re-render.
-  const first = save();
-  const second = save();
-  await Promise.all([first, second]);
+  save();
+  save();
+  const dialog = dialogOf(shown());
+  const confirm = dialog.props.onConfirm as () => Promise<{ success: boolean }>;
+  await Promise.all([confirm(), confirm()]);
   await flush();
   expect(calls.filter((call) => call.init?.method === "PATCH")).toHaveLength(1);
   expect(states[3]).toEqual({ kind: "saved", reloaded: true });

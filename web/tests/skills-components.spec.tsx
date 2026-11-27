@@ -247,14 +247,14 @@ it("shows the recording warning and Record past turns when recording is on", () 
   expect(html).toContain("Record past turns");
 });
 
-it("shows the danger callout while redaction is off and a question before it turns off", () => {
+it("shows the danger callout while redaction is off, and asks nothing inline before it turns off", () => {
   const off = card({ redact: false });
   expect(off).toContain('data-tone="danger"');
   expect(off).toContain("will be stored as written and sent to the external API");
   expect(card()).not.toContain('data-tone="danger"');
-  const asking = card({ confirm: "redact" });
-  expect(asking).toContain("Stop removing private text and secrets?");
-  expect(asking).toContain(">Turn off<");
+  // The shared confirm dialog asks before the switch turns off, not an inline callout.
+  expect(card()).not.toContain("Stop removing private text and secrets?");
+  expect(card()).not.toContain(">Turn off<");
 });
 
 it("states the count in the delete confirmation", () => {

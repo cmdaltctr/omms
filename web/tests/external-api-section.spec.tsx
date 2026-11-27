@@ -23,6 +23,8 @@ const { ReasoningLevel } = await import("../src/lib/components/settings/Reasonin
 const { KeySourceField } = await import("../src/lib/components/settings/KeySourceField.tsx");
 const { SettingsConfirmDialog } =
   await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
+const { SettingsChangeList } =
+  await import("../src/lib/components/settings/SettingsChangeList.tsx");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
@@ -60,6 +62,24 @@ const inputByHolder = (tree: Node[], holder: string) =>
 const type = (node: Node, value: string) => node.props.onChange({ target: { value } });
 const keyField = (tree: Node[]) => byType(tree, KeySourceField)[0]!;
 const post = (path: string) => requests.find((request) => request.path === path);
+const dialogOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+const bodyChildren = (dialog: Node) =>
+  ([dialog.props.body.props.children].flat() as Node[]).filter(Boolean);
+/** What the dialog lists: one row per setting the save changes. */
+const rowsOf = (dialog: Node) =>
+  (
+    bodyChildren(dialog).find((node) => node.type === SettingsChangeList)!.props as {
+      changes: unknown[];
+    }
+  ).changes;
+const leadOf = (dialog: Node) => text(bodyChildren(dialog).find((node) => node.type === "p"));
+/** Confirm the open dialog, then let it close as it does when the request succeeds. */
+async function confirm(tree: Node[]) {
+  const dialog = dialogOf(tree)!;
+  const result = await dialog.props.onConfirm();
+  dialog.props.onClose();
+  return result;
+}
 
 beforeEach(() => {
   resetRender();
@@ -153,16 +173,51 @@ const tests = () =>
   requests.filter((request) => request.path === "/api/settings/external-api/test");
 const patched = () => requests.some((request) => request.method === "PATCH");
 
-it("Save tests the form values first and saves after the test passes, with one test call", async () => {
+it("Save tests the form values first, then confirms, and saves only after the user confirms", async () => {
   let tree = await settle(<ExternalApiSection />, own);
   type(inputByHolder(tree, "glm-5-turbo"), "glm-6");
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "Save settings").props.onClick();
-  await settle(<ExternalApiSection />, own);
+  tree = await settle(<ExternalApiSection />, own);
   expect(tests()).toHaveLength(1);
   expect(tests()[0]!.body.model).toBe("glm-6");
+
+  const dialog = dialogOf(tree)!;
+  expect(dialog.props.title).toBe("Save external API settings?");
+  expect(dialog.props.confirmLabel).toBe("Save settings");
+  expect(rowsOf(dialog)).toEqual([
+    { key: "memoryModel", label: "Model name", from: "glm-5-turbo", to: "glm-6" },
+  ]);
+  expect(patched()).toBe(false);
+
+  await confirm(tree);
+  tree = await settle(<ExternalApiSection />, own);
+  expect(patched()).toBe(true);
   const patch = requests.find((request) => request.method === "PATCH")!;
   expect(requests.indexOf(tests()[0]!)).toBeLessThan(requests.indexOf(patch));
+  expect(patch.body).toEqual({ revision: "rev-1", edits: { memoryModel: "glm-6" } });
+  expect(allText(tree)).toContain("Saved. New capture and profile work uses these settings.");
+});
+
+it("sends nothing on Cancel, and the typed model stays as a draft", async () => {
+  let tree = await settle(<ExternalApiSection />, own);
+  type(inputByHolder(tree, "glm-5-turbo"), "glm-6");
+  tree = await settle(<ExternalApiSection />, own);
+  buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  dialogOf(tree)!.props.onClose();
+  tree = await settle(<ExternalApiSection />, own);
+
+  expect(dialogOf(tree)).toBeUndefined();
+  expect(patched()).toBe(false);
+  expect(allText(tree)).not.toContain("Saved. New capture and profile work uses these settings.");
+  // The typed model stays, so Save can be used again.
+  expect(inputByHolder(tree, "glm-5-turbo").props.value).toBe("glm-6");
+  buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  await confirm(tree);
+  await settle(<ExternalApiSection />, own);
+  expect(patched()).toBe(true);
 });
 
 it("Save never saves a key the provider refuses (401 or 403)", async () => {
@@ -197,6 +252,10 @@ it("Save asks before it saves when the provider cannot be reached, and Cancel sa
   tree = await settle(<ExternalApiSection />, own);
   const dialog = byType(tree, SettingsConfirmDialog)[0]!;
   expect(dialog.props.confirmLabel).toBe("Save anyway");
+  // The Save-anyway dialog is the confirmation for this click, so it also lists the changes.
+  expect(rowsOf(dialog)).toEqual([
+    { key: "memoryModel", label: "Model name", from: "glm-5-turbo", to: "glm-6" },
+  ]);
   expect(patched()).toBe(false);
   dialog.props.onClose();
   tree = await settle(<ExternalApiSection />, own);
@@ -218,16 +277,54 @@ it("Save anyway saves without a second test call", async () => {
   expect(tests()).toHaveLength(1);
 });
 
-it("clears the URL: an emptied field saves null so the key is removed", async () => {
+it("clears the URL: a confirm dialog says the external API turns off, then saves null", async () => {
   let tree = await settle(<ExternalApiSection />, own);
   type(inputByHolder(tree, "https://api.example.com/v1"), "");
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+
+  const dialog = dialogOf(tree)!;
+  expect(dialog.props.title).toBe("Save external API settings?");
+  expect(leadOf(dialog)).toBe("The external API will be turned off.");
+  expect(rowsOf(dialog)).toEqual([
+    {
+      key: "memoryApiUrl",
+      label: "Model service address",
+      from: "https://api.example.com/v1",
+      to: "Default (Not set)",
+    },
+  ]);
+  // An emptied address turns the external API off: there is nothing to test, and nothing is sent.
+  expect(post("/api/settings/external-api/test")).toBeUndefined();
+  expect(patched()).toBe(false);
+
+  await confirm(tree);
   await settle(<ExternalApiSection />, own);
   const patch = requests.find((request) => request.method === "PATCH")!;
   expect(patch.body).toEqual({ revision: "rev-1", edits: { memoryApiUrl: null } });
-  // An emptied address turns the external API off: there is nothing to test.
+});
+
+it("clears the model: the same turn-off confirm, and nothing is sent before the user confirms", async () => {
+  let tree = await settle(<ExternalApiSection />, own);
+  type(inputByHolder(tree, "glm-5-turbo"), "");
+  tree = await settle(<ExternalApiSection />, own);
+  buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  const dialog = dialogOf(tree)!;
+  expect(leadOf(dialog)).toBe("The external API will be turned off.");
+  expect(rowsOf(dialog)).toEqual([
+    { key: "memoryModel", label: "Model name", from: "glm-5-turbo", to: "Default (Not set)" },
+  ]);
   expect(post("/api/settings/external-api/test")).toBeUndefined();
+  expect(patched()).toBe(false);
+
+  await confirm(tree);
+  await settle(<ExternalApiSection />, own);
+  expect(requests.find((request) => request.method === "PATCH")!.body).toEqual({
+    revision: "rev-1",
+    edits: { memoryModel: null },
+  });
 });
 
 it("refuses a URL without http:// or https:// and says why next to the field", async () => {
@@ -255,6 +352,16 @@ it("saves a pasted key as a private file with the setting name and the fresh rev
   keyField(tree).props.onInput({ name: "zai", path: "", value: "sk-secret-123" });
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  // The dialog names the key source, never the key itself.
+  const dialog = dialogOf(tree)!;
+  expect(rowsOf(dialog)).toEqual([
+    { key: "memoryModel", label: "Model name", from: "glm-5-turbo", to: "glm-6" },
+    { key: "memoryApiKey", label: "Model service key", from: "Not set", to: "key file zai" },
+  ]);
+  expect(JSON.stringify(rowsOf(dialog))).not.toContain("sk-secret-123");
+  expect(patched()).toBe(false);
+  await confirm(tree);
   tree = await settle(<ExternalApiSection />, own);
   expect(post("/api/settings/external-api/key")!.body).toMatchObject({
     setting: "memoryApiKey",
@@ -289,7 +396,7 @@ it("checks the key before any request: a bad variable name saves nothing", async
   expect(allText(tree)).toContain("Enter a variable name such as ZAI_API_KEY");
 });
 
-it("saves nothing when the server refuses the key, and translates the reason", async () => {
+it("saves nothing when the server refuses the key, and the dialog stays open with the reason", async () => {
   keyReply = { status: 400, body: { error: "Enter the path of a key file" } };
   setLanguage("zh");
   let tree = await settle(<ExternalApiSection />, own);
@@ -300,7 +407,12 @@ it("saves nothing when the server refuses the key, and translates the reason", a
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "保存设置").props.onClick();
   tree = await settle(<ExternalApiSection />, own);
+  const result = await dialogOf(tree)!.props.onConfirm();
+  expect(result.success).toBe(false);
   expect(requests.some((request) => request.method === "PATCH")).toBe(false);
+  // The reason stays inside the dialog; the card shows it in the page's language.
+  tree = await settle(<ExternalApiSection />, own);
+  expect(dialogOf(tree)).toBeDefined();
   expect(allText(tree)).not.toContain("Enter the path of a key file");
 });
 
@@ -311,6 +423,8 @@ it("clears every key field after a save, so Save turns off", async () => {
   keyField(tree).props.onInput({ name: "ZAI_API_KEY", path: "", value: "" });
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  await confirm(tree);
   tree = await settle(<ExternalApiSection />, own);
   expect(keyField(tree).props.input).toEqual({ name: "", path: "", value: "" });
   expect(buttonOf(tree, "Save settings").props.disabled).toBe(true);
@@ -325,16 +439,47 @@ it("asks in a dialog before it replaces a key file, and replaces only after conf
   tree = await settle(<ExternalApiSection />, own);
   buttonOf(tree, "Save settings").props.onClick();
   tree = await settle(<ExternalApiSection />, own);
-  const dialog = byType(tree, SettingsConfirmDialog)[0]!;
-  expect(dialog).toBeDefined();
-  const first = requests.filter((request) => request.path === "/api/settings/external-api/key");
-  expect(first).toHaveLength(1);
+  // The save confirms first; the key file question replaces the open dialog, with no second one.
+  const saveDialog = dialogOf(tree)!;
+  expect(saveDialog.props.confirmLabel).toBe("Save settings");
+  expect(
+    requests.filter((request) => request.path === "/api/settings/external-api/key")
+  ).toHaveLength(0);
+  await saveDialog.props.onConfirm();
+  tree = await settle(<ExternalApiSection />, own);
+  expect(
+    requests.filter((request) => request.path === "/api/settings/external-api/key")
+  ).toHaveLength(1);
+  const replaceDialog = dialogOf(tree)!;
+  expect(replaceDialog.props.confirmLabel).toBe("Replace");
+  expect(replaceDialog.props.title).toBe("Replace the key file?");
+  expect(byType(tree, SettingsConfirmDialog)).toHaveLength(1);
   keyReply = { body: { revision: "rev-3" } };
-  const result = await dialog.props.onConfirm();
+  const result = await replaceDialog.props.onConfirm();
   expect(result.success).toBe(true);
   const all = requests.filter((request) => request.path === "/api/settings/external-api/key");
   expect(all).toHaveLength(2);
   expect(all[1]!.body.replace).toBe(true);
+});
+
+it("keeps a refused save inside the dialog, which stays open until the user decides", async () => {
+  const REFUSED = "Config changed. Reload settings and save again.";
+  requests = installFetch((request) => {
+    if (request.path === "/api/settings/external-api/test") return testReply;
+    if (request.method === "PATCH") return { status: 409, body: { error: REFUSED } };
+    return { body: snapshot() };
+  });
+  let tree = await settle(<ExternalApiSection />, own);
+  type(inputByHolder(tree, "glm-5-turbo"), "glm-6");
+  tree = await settle(<ExternalApiSection />, own);
+  buttonOf(tree, "Save settings").props.onClick();
+  tree = await settle(<ExternalApiSection />, own);
+  const result = await dialogOf(tree)!.props.onConfirm();
+  expect(result).toMatchObject({ success: false, error: REFUSED });
+  tree = await settle(<ExternalApiSection />, own);
+  expect(dialogOf(tree)).toBeDefined();
+  expect(allText(tree)).toContain(REFUSED);
+  expect(allText(tree)).not.toContain("Saved. New capture and profile work uses these settings.");
 });
 
 it("uses no raw button and no window.confirm", () => {

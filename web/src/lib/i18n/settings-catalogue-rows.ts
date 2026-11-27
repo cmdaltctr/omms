@@ -25,7 +25,10 @@ export const settingsCatalogueRowText = {
   On: ["开", "قيد التشغيل"],
   Off: ["关", "متوقف"],
   "Not set": ["未设置", "غير محدد"],
+  "Default ({value})": ["默认（{value}）", "افتراضي ({value})"],
   None: ["无", "لا شيء"],
+  // The list of changes in a settings confirm dialog.
+  "changes to": ["改为", "يتغير إلى"],
   "This project": ["本项目", "هذا المشروع"],
   "OpenAI Chat Completions": ["OpenAI Chat Completions", "OpenAI Chat Completions"],
   "Session model": ["会话模型", "نموذج الجلسة"],

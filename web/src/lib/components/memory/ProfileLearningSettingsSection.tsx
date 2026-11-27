@@ -15,6 +15,9 @@ import {
 } from "$lib/components/settings/SettingsConfirmDialog";
 import { Select } from "$lib/components/ui/select";
 import { Tooltip } from "$lib/components/ui/tooltip";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
   PROFILE_LEARNING_CONTROLS,
@@ -124,6 +127,8 @@ export function ProfileLearningSettingsSection() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status>();
   const [resetting, setResetting] = useState(false);
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const saving = useRef(false);
   useEffect(() => {
     let active = true;
@@ -197,8 +202,28 @@ export function ProfileLearningSettingsSection() {
     return { ok, stale, reloaded, reason };
   }
 
-  async function save() {
+  /** Asks first; the choices stay in the dropdowns until the dialog closes. */
+  function save() {
     if (!snapshot || saving.current || !changed) return;
+    const fields = PROFILE_LEARNING_CONTROLS.map((control) => ({
+      key: control.key,
+      label: name(control.key),
+      print: (value: unknown) => {
+        const option = control.options.find((entry) => entry.value === value);
+        return option ? s(option.label) : String(value);
+      },
+    }));
+    ask({
+      title: s("Save learning settings?"),
+      body: <SettingsChangeList changes={changes(saved, edits, fields)} />,
+      confirmLabel: s("Save"),
+      busyLabel: s("Saving…"),
+      run: commit,
+    });
+  }
+
+  async function commit(): Promise<ConfirmResult> {
+    if (!snapshot || saving.current || !changed) return { success: false };
     saving.current = true;
     setBusy(true);
     const start = snapshot;
@@ -212,6 +237,9 @@ export function ProfileLearningSettingsSection() {
     setStatus(
       stale ? { kind: "save", ok, reloaded, stale } : { kind: "save", ok, reloaded, reason }
     );
+    return ok
+      ? { success: true }
+      : { success: false, error: failureText({ ok, stale, reloaded, reason }, "save") };
   }
 
   async function reset(): Promise<ConfirmResult> {
@@ -366,6 +394,7 @@ export function ProfileLearningSettingsSection() {
           onClose={() => setResetting(false)}
         />
       )}
+      {dialog}
     </section>
   );
 }

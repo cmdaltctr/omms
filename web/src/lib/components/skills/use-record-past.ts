@@ -49,18 +49,20 @@ export function useRecordPast(onEnd: () => void) {
     }
   }, [job]);
 
-  async function start() {
-    if (starting || running) return;
+  /** Starts the job. A refused start shows its reason on the card and comes back for the dialog. */
+  async function start(): Promise<{ success: boolean; error?: string }> {
+    if (starting || running) return { success: true };
     setStarting(true);
     setError("");
     const reply = await skillsApi.recordPast();
-    if (!mounted.current) return;
+    if (!mounted.current) return { success: true };
     setStarting(false);
     if (!reply.ok) {
       setError(reply.error);
-      return;
+      return { success: false, error: reply.error };
     }
     setJob((reply.data as unknown as { job: ImportJob }).job);
+    return { success: true };
   }
   return { job, running, starting, error, start };
 }

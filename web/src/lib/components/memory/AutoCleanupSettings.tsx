@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Switch } from "$lib/components/ui/switch";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import { useSettingsText } from "$lib/i18n/settings";
 import { enabledEdit, intervalEdit } from "./auto-cleanup-settings-state";
@@ -30,6 +34,8 @@ export function AutoCleanupSettings() {
   const [fieldError, setFieldError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
 
   const savedEnabled = snapshot?.settings.userProfileAutoCleanupEnabled?.globalValue !== false;
   const savedInterval = Number(
@@ -62,9 +68,10 @@ export function AutoCleanupSettings() {
     if (snapshot) setDraft(String(savedInterval));
   }, [snapshot, savedInterval]);
 
-  async function save(edits: Record<string, unknown>) {
-    if (!snapshot) return;
+  async function save(edits: Record<string, unknown>): Promise<ConfirmResult> {
+    if (!snapshot) return { success: false };
     setBusy(true);
+    let failure: string | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
@@ -73,10 +80,12 @@ export function AutoCleanupSettings() {
       setEnabled(undefined);
       setMessage(s("Saved. Changes apply at the next learning pass."));
     } catch (error) {
-      setMessage((error as Error).message);
+      failure = (error as Error).message;
+      setMessage(failure);
     }
     await reloadSettingsSnapshot<Snapshot>();
     setBusy(false);
+    return failure === undefined ? { success: true } : { success: false, error: s(failure) };
   }
 
   function saveAll() {
@@ -90,7 +99,27 @@ export function AutoCleanupSettings() {
       ...enabledEdit(savedEnabled, nextEnabled),
       ...(result.kind === "edit" ? result.edits : {}),
     };
-    if (Object.keys(edits).length > 0) void save(edits);
+    if (Object.keys(edits).length === 0) return;
+    const inForce = {
+      userProfileAutoCleanupEnabled: savedEnabled,
+      userProfileAutoCleanupInterval: savedInterval,
+    };
+    const fields = [
+      { key: "userProfileAutoCleanupEnabled", label: name("userProfileAutoCleanupEnabled") },
+      {
+        key: "userProfileAutoCleanupInterval",
+        label: name("userProfileAutoCleanupInterval"),
+        default: DEFAULT_INTERVAL,
+        print: (value: unknown) => `${String(value)} ${s("prompts")}`,
+      },
+    ];
+    ask({
+      title: s("Save automatic profile cleanup?"),
+      body: <SettingsChangeList changes={changes(inForce, edits, fields)} />,
+      confirmLabel: s("Save"),
+      busyLabel: s("Saving…"),
+      run: () => save(edits),
+    });
   }
 
   return (
@@ -153,6 +182,7 @@ export function AutoCleanupSettings() {
           {message}
         </p>
       )}
+      {dialog}
     </div>
   );
 }

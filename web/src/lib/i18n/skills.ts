@@ -127,6 +127,11 @@ export const skillText = {
     "سجّل أدوار الوكيل ليتمكن OMMS من ترتيب مهاراتك وصياغة التحسينات.",
   ],
   "Record past turns": ["记录过去的回合", "تسجيل الأدوار السابقة"],
+  "Record past turns?": ["记录过去的回合？", "تسجيل الأدوار السابقة؟"],
+  "OMMS records skill turns from the past sessions of every set-up host, with no model call.": [
+    "OMMS 会从每个已设置宿主的过往会话中记录技能回合，不调用模型。",
+    "يسجّل OMMS أدوار المهارات من الجلسات السابقة لكل مضيف مهيّأ، دون أي استدعاء لنموذج.",
+  ],
   "Record past turns did not finish.": [
     "记录过去的回合未完成。",
     "لم يكتمل تسجيل الأدوار السابقة.",
@@ -140,6 +145,7 @@ export const skillText = {
   "Remove folder": ["移除文件夹", "إزالة المجلد"],
   "Remove folder {path}": ["移除文件夹 {path}", "إزالة المجلد {path}"],
   "Remove private text and secrets": ["移除私密文本和机密", "إزالة النص الخاص والأسرار"],
+  "Remove private text and secrets?": ["移除私密文本和机密？", "إزالة النص الخاص والأسرار؟"],
   "Reset default": ["恢复默认", "استعادة الافتراضي"],
   "Saved.": ["已保存。", "تم الحفظ."],
   "Show changes": ["显示更改", "عرض التغييرات"],
@@ -164,6 +170,8 @@ export const skillText = {
   ],
   Suggested: ["建议", "مقترحة"],
   "Turn off": ["关闭", "إيقاف"],
+  "Turn on skill learning?": ["开启技能学习？", "تشغيل تعلّم المهارات؟"],
+  "Turn off skill learning?": ["关闭技能学习？", "إيقاف تعلّم المهارات؟"],
   "Turn on Automatic": ["开启自动", "تشغيل التلقائي"],
   "Turn on Automatic mode for this skill?": [
     "为此技能开启自动模式？",

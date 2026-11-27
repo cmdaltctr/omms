@@ -1,4 +1,5 @@
 import { Pause, Play, Power, RotateCw, ExternalLink } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
 import { Button } from "$lib/components/ui/button";
 import type { ModelBackfillHost } from "$lib/auto-import-settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
@@ -26,21 +27,60 @@ const STATE_LABEL: Record<HostState, string> = {
   stopped: "Stopped",
 };
 
+/** What each job action asks before it runs. */
+const JOB_TEXT = {
+  pause: {
+    title: "Pause automatic import?",
+    sentence:
+      "Automatic import stops after the current exchange, and no automatic run starts until you resume it.",
+  },
+  resume: {
+    title: "Resume automatic import?",
+    sentence: "Automatic import starts again and makes model calls, which can cost money.",
+  },
+  retry: {
+    title: "Retry the import?",
+    sentence: "The import runs again, so it calls the model again and can cost money.",
+  },
+} as const;
+/** The request each job action sends once the user confirms. */
+const JOB_REQUEST = { pause: "pause", resume: "resume", retry: "run" } as const;
+
 /** The host's state, its one main action, and the sentence that explains both. */
 export function HostStatusHeader({ host, statuses }: { host: WebHost; statuses: HostStatuses }) {
   const s = useSettingsText();
   const { looks } = useHostLooks();
+  const { ask, dialog } = useSettingsConfirm();
   const { backfill } = statuses;
   const status = statuses.status(host);
   const facts = statuses.input(host);
   const row = backfill.rows[host];
   const run = backfill.runs?.[host]?.run ?? null;
+  /** Each job action asks first, with one sentence on what it does. */
   const act = () => {
     const kind = status.action.kind;
-    if (kind === "pause") void backfill.control(host, "pause");
-    else if (kind === "resume") void backfill.control(host, "resume");
-    else if (kind === "retry") void backfill.control(host, "run");
+    if (!(kind in JOB_TEXT)) return;
+    const job = kind as keyof typeof JOB_TEXT;
+    ask({
+      title: s(JOB_TEXT[job].title),
+      body: <p>{s(JOB_TEXT[job].sentence)}</p>,
+      confirmLabel: label[job],
+      run: () => backfill.control(host, JOB_REQUEST[job]),
+    });
   };
+  const useExternal = () =>
+    ask({
+      title: s("Use the external API?"),
+      body: (
+        <p>
+          {s(
+            "{host} will use the external API model to import past chats. It can then run with no host open."
+          ).replace("{host}", hostLabel(host))}
+        </p>
+      ),
+      confirmLabel: s("Use external API"),
+      run: () => backfill.saveModel(host as ModelBackfillHost, "external"),
+    });
   const label: Record<typeof status.action.kind, string> = {
     setup: s("How to set up"),
     pause: s("Pause"),
@@ -103,7 +143,9 @@ export function HostStatusHeader({ host, statuses }: { host: WebHost; statuses: 
         ) : status.action.kind === "turn-on" ? (
           <TurnOnAction
             disabled={backfill.busy || !status.action.enabled}
-            onConfirm={() => backfill.save({ autoBackfill: true })}
+            onConfirm={async () => {
+              await backfill.save({ autoBackfill: true });
+            }}
           />
         ) : (
           <Button type="button" disabled={backfill.busy || !status.action.enabled} onClick={act}>
@@ -117,12 +159,7 @@ export function HostStatusHeader({ host, statuses }: { host: WebHost; statuses: 
           </span>
         )}
         {status.offerExternal && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={backfill.busy}
-            onClick={() => backfill.saveModel(host as ModelBackfillHost, "external")}
-          >
+          <Button type="button" variant="outline" disabled={backfill.busy} onClick={useExternal}>
             {s("Use external API")}
           </Button>
         )}
@@ -147,6 +184,7 @@ export function HostStatusHeader({ host, statuses }: { host: WebHost; statuses: 
           {s("Importing makes model calls and can cost money.")}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

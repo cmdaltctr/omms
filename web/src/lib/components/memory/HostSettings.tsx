@@ -1,7 +1,16 @@
 import { useState } from "react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
 import { Select } from "$lib/components/ui/select";
-import { manualModelFieldVisible, type ModelBackfillHost } from "$lib/auto-import-settings";
+import { Switch } from "$lib/components/ui/switch";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import {
+  backfillModelEdit,
+  manualModelFieldVisible,
+  type ModelBackfillHost,
+} from "$lib/auto-import-settings";
 import { externalMissing } from "$lib/external-api-settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
@@ -14,11 +23,16 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
   const s = useSettingsText();
   const readOnly = useSettingsReadOnly();
   const { snapshot, lists, busy } = backfill;
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes } = useSettingsChanges();
   const [choice, setChoice] = useState<string>();
   const [typedMode, setTypedMode] = useState<boolean>();
-  // Turning automatic import on costs money on every host, so it asks first; off needs no question.
+  // Turning automatic import on costs money on every host, so it keeps its own Turn on dialog.
   const [asking, setAsking] = useState(false);
+  /** The switch while the turn-off dialog asks. Cancel puts the saved value back. */
+  const [pendingAuto, setPendingAuto] = useState<boolean>();
   const settings = snapshot?.settings ?? {};
+  const savedAuto = Boolean(settings.autoBackfill?.globalValue);
   const saved = String(settings[`${host}BackfillModel`]?.globalValue ?? "inherit");
   const current = choice ?? saved;
   const options = lists[host]?.models ?? [];
@@ -33,6 +47,65 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
     memoryApiUrl: settings.memoryApiUrl?.globalValue as string | undefined,
     keySet: Boolean(snapshot?.secrets?.memoryApiKey?.set),
   });
+  const modelName = (value: unknown) =>
+    value === "inherit"
+      ? s("Same as live capture")
+      : value === "external"
+        ? s("External API")
+        : String(value);
+
+  /** A bad manual model shows its message on the page and opens no dialog. */
+  function askModel() {
+    let edits: Record<string, string>;
+    try {
+      edits = backfillModelEdit(host as ModelBackfillHost, current.trim());
+    } catch (error) {
+      backfill.setMessage(s((error as Error).message));
+      return;
+    }
+    const key = `${host}BackfillModel`;
+    const rows = changes({ [key]: saved }, edits, [
+      { key, label: s("Backfill model"), print: modelName },
+    ]);
+    // Save stays on for an unchanged model. The dialog has nothing to list for that, so the card
+    // saves as it did before it asked first.
+    if (rows.length === 0) {
+      void backfill.save(edits);
+      return;
+    }
+    ask({
+      title: s("Save the backfill model?"),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save model"),
+      busyLabel: s("Saving…"),
+      run: () => backfill.save(edits),
+    });
+  }
+
+  /** Asks before automatic import turns off. The box shows the cleared state meanwhile. */
+  function askTurnOff() {
+    const edits = { autoBackfill: false };
+    setPendingAuto(false);
+    ask({
+      title: s("Turn automatic import off?"),
+      body: (
+        <SettingsChangeList
+          changes={changes({ autoBackfill: savedAuto }, edits, [
+            { key: "autoBackfill", label: s("Import past chats automatically") },
+          ])}
+        />
+      ),
+      confirmLabel: s("Turn off"),
+      busyLabel: s("Saving…"),
+      onCancel: () => setPendingAuto(undefined),
+      run: async () => {
+        const result = await backfill.save(edits);
+        // The reloaded snapshot shows the saved value, so the picked one can go.
+        if (result.success) setPendingAuto(undefined);
+        return result;
+      },
+    });
+  }
   return (
     <section
       className="space-y-3 rounded-xl border border-border bg-card p-4"
@@ -76,9 +149,8 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
             </div>
           </label>
           {typed && (
-            <input
+            <Input
               aria-label={`${hostLabel(host)} ${s("Manual provider/model")}`}
-              className="w-full rounded-[10px] border border-border bg-card p-2"
               dir="ltr"
               placeholder="provider/model"
               value={current === "typed" ? "" : current}
@@ -102,20 +174,17 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
             variant="outline"
             size="sm"
             disabled={busy || readOnly || !snapshot}
-            onClick={() => backfill.saveModel(host as ModelBackfillHost, current)}
+            onClick={askModel}
           >
             {s("Save model")}
           </Button>
         </div>
       )}
       <label id="memory-section-auto-import" className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={Boolean(settings.autoBackfill?.globalValue)}
+        <Switch
+          checked={pendingAuto ?? savedAuto}
           disabled={busy || readOnly || !snapshot}
-          onChange={(event) =>
-            event.target.checked ? setAsking(true) : void backfill.save({ autoBackfill: false })
-          }
+          onCheckedChange={(checked) => (checked ? setAsking(true) : askTurnOff())}
         />
         {s("Import past chats automatically")}
       </label>
@@ -125,10 +194,13 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
       </p>
       {asking && (
         <TurnOnDialog
-          onConfirm={() => backfill.save({ autoBackfill: true })}
+          onConfirm={async () => {
+            await backfill.save({ autoBackfill: true });
+          }}
           onClose={() => setAsking(false)}
         />
       )}
+      {dialog}
     </section>
   );
 }

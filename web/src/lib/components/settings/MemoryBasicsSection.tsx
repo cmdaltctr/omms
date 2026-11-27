@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import { Select } from "$lib/components/ui/select";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
 import { useCardText } from "$lib/i18n/settings-cards";
 import { saveSettingEdits } from "$lib/settings-save";
 import { SettingRow } from "./SettingRow";
@@ -23,6 +26,8 @@ const SCOPE = "memory.defaultScope";
 export function MemoryBasicsSection() {
   const t = useCardText();
   const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const [edits, setEdits] = useState<Record<string, boolean | string>>({});
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
@@ -34,28 +39,45 @@ export function MemoryBasicsSection() {
   const changed = Object.keys(edits).filter((key) => edits[key] !== saved(key));
   const readOnly = snapshot?.readOnly === true;
   const projectDecides = (key: string) => snapshot?.settings[key]?.source === "project";
+  const scopeName = (code: unknown) =>
+    t(
+      code === "all-projects" ? "All projects" : code === "project" ? "This project" : String(code)
+    );
+  const fields = [
+    ...SWITCHES.map((key) => ({ key, label: name(key) })),
+    { key: SCOPE, label: name(SCOPE), print: scopeName },
+  ];
 
   function edit(key: string, next: boolean | string) {
     setEdits((previous) => ({ ...previous, [key]: next }));
     setMessage("");
   }
 
-  async function save() {
+  /** Asks first, with each changed setting and its new value. The card's own feedback stays. */
+  function save() {
     if (!snapshot || changed.length === 0) return;
-    setBusy(true);
-    setMessage("");
-    const result = await saveSettingEdits(
-      snapshot.revision,
-      Object.fromEntries(changed.map((key) => [key, edits[key]]))
-    );
-    setBusy(false);
-    setFailed(!result.success);
-    if (result.success) {
-      setEdits({});
-      setMessage(t("Saved."));
-    } else {
-      setMessage(result.error ?? "");
-    }
+    const body = Object.fromEntries(changed.map((key) => [key, edits[key]]));
+    const inForce = Object.fromEntries([...SWITCHES, SCOPE].map((key) => [key, saved(key)]));
+    ask({
+      title: t("Save memory basics?"),
+      body: <SettingsChangeList changes={changes(inForce, body, fields)} />,
+      confirmLabel: t("Save"),
+      busyLabel: t("Saving…"),
+      run: async () => {
+        setBusy(true);
+        setMessage("");
+        const result = await saveSettingEdits(snapshot.revision, body);
+        setBusy(false);
+        setFailed(!result.success);
+        if (result.success) {
+          setEdits({});
+          setMessage(t("Saved."));
+        } else {
+          setMessage(result.error ?? "");
+        }
+        return result;
+      },
+    });
   }
 
   return (
@@ -128,6 +150,7 @@ export function MemoryBasicsSection() {
           </p>
         ) : null}
       </div>
+      {dialog}
     </section>
   );
 }
