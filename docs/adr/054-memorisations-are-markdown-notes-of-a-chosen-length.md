@@ -3,7 +3,7 @@
 - **Date:** 2026-11-27
 - **Status:** Accepted
 - **Deciders:** OMMS maintainer
-- **Change:** [`memorisation-markdown-notes`](../../openspec/changes/memorisation-markdown-notes/proposal.md)
+- **Change:** [`memorisation-markdown-notes`](../../openspec/changes/archive/2026-11-27-memorisation-markdown-notes/proposal.md)
 
 ## Context
 

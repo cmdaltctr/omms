@@ -151,7 +151,9 @@ export function useMemorisationSettings() {
     },
     /**
      * Saves the three presets. When the preset that the saved cap matches changes value, the cap
-     * follows it in the saved unit, so that preset stays selected. Resolves true on success.
+     * follows it in the saved unit, so that preset stays selected. The box follows too when it
+     * held the old value of a changed preset, in the box unit; the cap itself saves only on Save.
+     * Resolves true on success.
      */
     savePresets: async (values: Record<Preset, number>) => {
       const kept = selectedPreset(sizeNow, unitNow, presets);
@@ -160,20 +162,20 @@ export function useMemorisationSettings() {
         [PRESET_KEYS.medium]: values.medium,
         [PRESET_KEYS.long]: values.long,
       };
-      let cap: number | undefined;
       if (kept !== "custom" && values[kept] !== presets[kept]) {
-        cap = presetSizeIn(values[kept], unitNow);
-        edits.memorisationMaxSize = cap;
+        edits.memorisationMaxSize = presetSizeIn(values[kept], unitNow);
       }
-      // The box follows the cap unless it holds an unsaved edit.
-      const clean = sizeText.trim() === String(sizeNow ?? "") && unit === unitNow;
+      // A box on a preset follows that preset's new value; a custom number stays as typed.
+      const shown = selectedPreset(sizeText, unit, presets);
       const ok = await patch(
         edits,
         { kind: "presets-saved" },
         undefined,
         (message): SettingsStatus => ({ kind: "presets-failed", reason: message })
       );
-      if (ok && cap !== undefined && clean) setSizeText(String(cap));
+      if (ok && shown !== "custom" && values[shown] !== presets[shown]) {
+        setSizeText(String(presetSizeIn(values[shown], unit)));
+      }
       return ok;
     },
     chooseRepeat: (value: Repeat) => patch({ memorisationRepeat: value }, { kind: "repeat-saved" }),

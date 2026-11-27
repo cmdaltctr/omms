@@ -207,6 +207,8 @@ describe("Claude Code plugin assets", () => {
     }
     // Text the user dictates is saved unchanged, whatever the note length.
     expect(skill).toMatch(/word for word[^\n]*unchanged[^\n]*whatever the note length/i);
+    // Dictated text never goes through snapshot fields, which would add headings.
+    expect(skill).toContain("Dictated text always goes in `content`");
   });
 
   it("omms-memory routes 'the memorisation labelled X' to recall with tags", () => {

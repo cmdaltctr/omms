@@ -18,7 +18,7 @@ import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./services/injection-options-c
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./services/request-timeouts.js";
 import {
   checkMemorisationSettingsEdits,
-  memorisationSettingsFrom,
+  storedMemorisationSettings,
 } from "./core/memorisation-settings.js";
 import {
   isProfileLearningKey,
@@ -323,7 +323,7 @@ export async function writeGlobalConfigKeys(
     }
     checkMemorisationSettingsEdits(
       applied,
-      memorisationSettingsFrom(current as Record<string, unknown>)
+      storedMemorisationSettings(current as Record<string, unknown>)
     );
     for (const [key, value] of Object.entries(applied)) {
       // A nested identifier maps to its JSONC leaf path, so compaction.enabled

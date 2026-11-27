@@ -190,6 +190,26 @@ describe("global config writer", () => {
     expect(result.text).toBe(seed);
   });
 
+  it("accepts a preset edit that repairs an out-of-order pair in the file, and refuses one that does not", async () => {
+    // A hand edit left Short above Medium. The page must be able to repair it.
+    const seed = '{ "memorisationShortSize": 3000, "memorisationMediumSize": 2000 }\n';
+    const result = await scenario(
+      `
+      const errors = [];
+      try { await writeGlobalConfigKeys({ memorisationLongSize: 6000 }, readGlobalConfigRevision()); }
+      catch (error) { errors.push(String(error)); }
+      const unchanged = readFileSync(target, "utf8");
+      await writeGlobalConfigKeys({ memorisationShortSize: 800 }, readGlobalConfigRevision());
+      return { errors, unchanged, repaired: JSON.parse(readFileSync(target, "utf8")) };
+    `,
+      seed
+    );
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Short must be less than Medium");
+    expect(result.unchanged).toBe(seed);
+    expect(result.repaired).toEqual({ memorisationShortSize: 800, memorisationMediumSize: 2000 });
+  });
+
   it("saves claudeConfigDir globally, clears it with an empty value, and reports the folder", async () => {
     const seed = '{ "piModel": "old" }\n';
     const result = await scenario(

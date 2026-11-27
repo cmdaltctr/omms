@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, mock } from "bun:test";
+import { isValidElement, type ReactNode } from "react";
 import {
   allText,
   byType,
@@ -273,13 +274,10 @@ const changes = () => requests.filter((request) => request.method !== "GET");
 const titles = (tree: Node[]) => byType(tree, "h3").map((node) => text(node.props.children));
 const buttonOf = (nodes: Node[], label: string) =>
   byType(nodes, Button).find((node) => text(node.props.children).trim() === label)!;
+const isRadio = (node: Node) =>
+  (node.type === "button" || node.type === Button) && node.props.role === "radio";
 const radioOf = (tree: Node[], label: string) =>
-  tree.find(
-    (node) =>
-      node.type === "button" &&
-      node.props.role === "radio" &&
-      text(node.props.children).includes(label)
-  )!;
+  tree.find((node) => isRadio(node) && text(node.props.children).includes(label))!;
 const inputOf = (tree: Node[], id: string) =>
   tree.find((node) => node.type === Input && node.props.id === id)!;
 const typeInto = (node: Node, value: string) => node.props.onChange({ target: { value } });
@@ -637,9 +635,7 @@ const sizeForm = (tree: Node[]) => byType(tree, "form").at(-1)!;
 
 it("shows each preset with its value in the unit, and selects the one the cap matches", async () => {
   const tree = await settle(page, own);
-  expect(allText(byType(tree, "button").filter((node) => node.props.role === "radio"))).toContain(
-    "Short · 800"
-  );
+  expect(allText(tree.filter(isRadio))).toContain("Short · 800");
   expect(checked(tree, "Short · 800")).toBe(false);
   expect(checked(tree, "Medium · 2000")).toBe(true);
   expect(checked(tree, "Long · 5000")).toBe(false);
@@ -856,6 +852,244 @@ it("closes the boxes on Cancel without a request, and reopens with the saved val
   expect(changes()).toEqual([]);
   tree = await openEditor();
   expect(presetBox(tree, "short").props.value).toBe("800");
+});
+
+it("moves the cap to an edited preset that the unsaved box matched", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Short").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("800");
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await press("Save presets");
+  // The saved cap is Medium and did not change, so only the presets go out.
+  expect(changes()[0]!.body.edits).toEqual({
+    memorisationShortSize: 1000,
+    memorisationMediumSize: 2000,
+    memorisationLongSize: 5000,
+  });
+  expect(sizeBox(tree)).toBe("1000");
+  expect(checked(tree, "Short · 1000")).toBe(true);
+  expect(checked(tree, "Custom")).toBe(false);
+  // Nothing saves the cap until the user presses Save.
+  expect(changes()).toHaveLength(1);
+});
+
+it("follows an edited preset in the box unit when the unit is unsaved", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("500");
+  typeInto(presetBox(tree, "medium"), "2400");
+  tree = await press("Save presets");
+  // The saved cap follows in the saved unit; the box follows in the box unit.
+  expect(changes()[0]!.body.edits).toMatchObject({
+    memorisationMediumSize: 2400,
+    memorisationMaxSize: 2400,
+  });
+  expect(sizeBox(tree)).toBe("600");
+  expect(checked(tree, "Medium")).toBe(true);
+});
+
+it("keeps a custom number in the box when presets change", async () => {
+  let tree = await settle(page, own);
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  tree = await settle(page, own);
+  buttonOf(tree, "Edit presets").props.onClick();
+  tree = await settle(page, own);
+  typeInto(presetBox(tree, "short"), "1000");
+  tree = await press("Save presets");
+  expect(sizeBox(tree)).toBe("3000");
+  expect(checked(tree, "Custom")).toBe(true);
+});
+
+it("leaves the box alone when the preset it matched did not change", async () => {
+  let tree = await openEditor();
+  radioOf(tree, "Short").props.onClick();
+  tree = await settle(page, own);
+  typeInto(presetBox(tree, "long"), "8000");
+  tree = await press("Save presets");
+  expect(sizeBox(tree)).toBe("800");
+  expect(checked(tree, "Short")).toBe(true);
+});
+
+// ---- Size cap radio groups ----
+
+const within = (node: ReactNode): Node[] =>
+  Array.isArray(node)
+    ? node.flatMap(within)
+    : isValidElement(node)
+      ? [node as Node, ...within((node as Node).props.children)]
+      : [];
+const groupOf = (tree: Node[], label: string) =>
+  tree.find((node) => node.props.role === "radiogroup" && node.props["aria-label"] === label)!;
+const radiosOf = (tree: Node[], label: string) =>
+  within(groupOf(tree, label).props.children).filter(isRadio);
+/** Gives each radio a stand-in element, as React does for a ref, and records focus moves. */
+function attach(radios: Node[]) {
+  const focused: number[] = [];
+  const elements = radios.map((radio, index) => {
+    const element = { focus: () => focused.push(index) };
+    radio.props.ref(element);
+    return element;
+  });
+  return { focused, elements };
+}
+const arrow = (tree: Node[], group: string, key: string, from: unknown) => {
+  const event = { key, target: from, currentTarget: {}, preventDefault: mock(() => {}) };
+  groupOf(tree, group).props.onKeyDown(event);
+  return event;
+};
+let direction = "ltr";
+Object.assign(globalThis, { getComputedStyle: () => ({ direction }) });
+
+it("gives the chosen radio the only tab stop in each group", async () => {
+  let tree = await settle(page, own);
+  expect(radiosOf(tree, "Note length").map((radio) => radio.props.tabIndex)).toEqual([
+    -1, 0, -1, -1,
+  ]);
+  expect(radiosOf(tree, "Unit").map((radio) => radio.props.tabIndex)).toEqual([0, -1]);
+  typeInto(inputOf(tree, "memorisation-size"), "3000");
+  tree = await settle(page, own);
+  expect(radiosOf(tree, "Note length").map((radio) => radio.props.tabIndex)).toEqual([
+    -1, -1, -1, 0,
+  ]);
+  radioOf(tree, "Tokens").props.onClick();
+  tree = await settle(page, own);
+  expect(radiosOf(tree, "Unit").map((radio) => radio.props.tabIndex)).toEqual([-1, 0]);
+});
+
+it("moves focus and the choice with the arrow keys in the preset group", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  const event = arrow(tree, "Note length", "ArrowRight", elements[1]);
+  expect(event.preventDefault).toHaveBeenCalled();
+  expect(focused).toEqual([2]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("5000");
+  expect(checked(tree, "Long")).toBe(true);
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[2]);
+  arrow(tree, "Note length", "ArrowUp", elements[1]);
+  expect(focused).toEqual([1, 0]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("800");
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[0]);
+  expect(focused).toEqual([3]);
+  expect(sizeBox(await settle(page, own))).toBe("800");
+});
+
+it("focuses Custom without changing the number, and leaves it from where focus is", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  radioOf(tree, "Long").props.onClick();
+  tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  arrow(tree, "Note length", "ArrowRight", elements[2]);
+  expect(focused).toEqual([3]);
+  tree = await settle(page, own);
+  expect(sizeBox(tree)).toBe("5000");
+  expect(checked(tree, "Long")).toBe(true);
+  expect(changes()).toEqual([]);
+  // Focus is on Custom now, so the next key starts there, not at the checked radio.
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowLeft", elements[3]);
+  expect(focused).toEqual([2]);
+  ({ focused, elements } = attach(radiosOf(await settle(page, own), "Note length")));
+  arrow(tree, "Note length", "ArrowRight", elements[3]);
+  expect(focused).toEqual([0]);
+  expect(sizeBox(await settle(page, own))).toBe("800");
+});
+
+it("flips Left and Right in a right-to-left row, and ignores other keys", async () => {
+  direction = "rtl";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Note length"));
+  arrow(tree, "Note length", "ArrowLeft", elements[1]);
+  expect(focused).toEqual([2]);
+  tree = await settle(page, own);
+  ({ focused, elements } = attach(radiosOf(tree, "Note length")));
+  arrow(tree, "Note length", "ArrowRight", elements[2]);
+  arrow(tree, "Note length", "ArrowDown", elements[1]);
+  expect(focused).toEqual([1, 2]);
+  const other = arrow(tree, "Note length", "a", elements[2]);
+  expect(other.preventDefault).not.toHaveBeenCalled();
+  expect(focused).toEqual([1, 2]);
+  direction = "ltr";
+});
+
+it("moves focus and the unit with the arrow keys in the unit group", async () => {
+  direction = "ltr";
+  let tree = await settle(page, own);
+  let { focused, elements } = attach(radiosOf(tree, "Unit"));
+  const event = arrow(tree, "Unit", "ArrowRight", elements[0]);
+  expect(event.preventDefault).toHaveBeenCalled();
+  expect(focused).toEqual([1]);
+  tree = await settle(page, own);
+  expect(checked(tree, "Tokens")).toBe(true);
+  expect(sizeBox(tree)).toBe("500");
+  ({ focused, elements } = attach(radiosOf(tree, "Unit")));
+  arrow(tree, "Unit", "ArrowRight", elements[1]);
+  expect(focused).toEqual([0]);
+  tree = await settle(page, own);
+  expect(checked(tree, "Characters")).toBe(true);
+  expect(sizeBox(tree)).toBe("2000");
+});
+
+it("builds the preset and unit choices from the shared Button", async () => {
+  const tree = await settle(page, own);
+  const radios = [...radiosOf(tree, "Note length"), ...radiosOf(tree, "Unit")];
+  expect(radios).toHaveLength(6);
+  for (const radio of radios) {
+    expect(radio.type).toBe(Button);
+    expect(radio.props.type).toBe("button");
+  }
+  for (const label of ["Note length", "Unit"]) {
+    const raw = within(groupOf(tree, label).props.children).filter(
+      (node) => node.type === "button"
+    );
+    expect(raw).toEqual([]);
+  }
+});
+
+// ---- Preset editor: invalid fields ----
+
+const invalid = (tree: Node[]) =>
+  ["short", "medium", "long"].filter((name) => presetBox(tree, name).props["aria-invalid"]);
+const alertOf = (tree: Node[]) => tree.find((node) => node.props.role === "alert")!;
+
+it("marks the one preset that is out of range and points it at the alert", async () => {
+  let tree = await openEditor();
+  expect(invalid(tree)).toEqual([]);
+  typeInto(presetBox(tree, "medium"), "50");
+  tree = await press("Save presets");
+  expect(invalid(tree)).toEqual(["medium"]);
+  const alert = alertOf(tree);
+  expect(alert.props.id).toBeTruthy();
+  expect(presetBox(tree, "medium").props["aria-describedby"]).toBe(alert.props.id);
+  expect(presetBox(tree, "short").props["aria-describedby"]).toBeUndefined();
+  // Typing clears the problem, the mark and the pointer.
+  typeInto(presetBox(tree, "medium"), "2000");
+  tree = await settle(page, own);
+  expect(invalid(tree)).toEqual([]);
+  expect(presetBox(tree, "medium").props["aria-describedby"]).toBeUndefined();
+});
+
+it("marks both presets of an order or token problem", async () => {
+  let tree = await openEditor();
+  typeInto(presetBox(tree, "short"), "2500");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("Short must be less than Medium");
+  expect(invalid(tree)).toEqual(["short", "medium"]);
+  for (const name of ["short", "medium"]) {
+    expect(presetBox(tree, name).props["aria-describedby"]).toBe(alertOf(tree).props.id);
+  }
+  typeInto(presetBox(tree, "short"), "1997");
+  tree = await press("Save presets");
+  expect(allText(tree)).toContain("must differ by at least one token");
+  expect(invalid(tree)).toEqual(["short", "medium"]);
+  expect(presetBox(tree, "long").props["aria-describedby"]).toBeUndefined();
 });
 
 it("shows the preset texts in Chinese and Arabic", async () => {

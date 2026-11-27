@@ -15,6 +15,12 @@ import {
 
 type Drafts = Record<Preset, string>;
 
+const PROBLEM_ID = "memorisation-preset-problem";
+
+/** The presets a problem names: the one out of range, or the lower and higher pair. */
+const problemPresets = (problem: PresetProblem | null): Preset[] =>
+  !problem ? [] : problem.rule === "range" ? [problem.preset] : [problem.lower, problem.higher];
+
 const draftsOf = (presets: Record<Preset, number>): Drafts => ({
   short: String(presets.short),
   medium: String(presets.medium),
@@ -78,6 +84,8 @@ export function PresetEditor({
           })
     : null;
 
+  const flagged = problemPresets(problem);
+
   async function save(current: Drafts) {
     const checked = checkPresets(current);
     if ("problem" in checked) return setProblem(checked.problem);
@@ -101,6 +109,8 @@ export function PresetEditor({
                 dir="ltr"
                 value={drafts[preset]}
                 disabled={busy}
+                aria-invalid={flagged.includes(preset) || undefined}
+                aria-describedby={flagged.includes(preset) ? PROBLEM_ID : undefined}
                 onChange={(event) => {
                   setProblem(null);
                   setDrafts({ ...drafts, [preset]: event.target.value });
@@ -116,7 +126,7 @@ export function PresetEditor({
         })}
       </div>
       {message ? (
-        <p role="alert" className="text-sm text-destructive-label">
+        <p id={PROBLEM_ID} role="alert" className="text-sm text-destructive-label">
           {message}
         </p>
       ) : null}

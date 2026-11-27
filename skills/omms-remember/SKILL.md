@@ -62,7 +62,7 @@ memory({ mode: "memorise", content: "<text the user names>" })
 
 Text the user dictates word for word is saved unchanged, whatever the note length. Do not shorten it, reformat it or add sections.
 
-Send `content` or the snapshot fields in one call, never both. The tool refuses a call with both. When the user's text already has done, doing and next parts, put them in the snapshot fields.
+Send `content` or the snapshot fields in one call, never both. The tool refuses a call with both. Dictated text always goes in `content`, even when it has done, doing and next parts, because snapshot fields add headings. When the user gives done, doing and next parts and does not ask for exact text, put them in the snapshot fields.
 
 ## Write a note
 

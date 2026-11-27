@@ -97,6 +97,27 @@ export function checkMemorisationSettingsEdits(
 
 export { settingsFrom as memorisationSettingsFrom };
 
+const PRESET_KEYS = [
+  "memorisationShortSize",
+  "memorisationMediumSize",
+  "memorisationLongSize",
+] as const;
+
+/**
+ * The saved settings as the base for an edit. The presets are read as stored, without their
+ * rules, so an edit can repair a file whose presets break them. The merged edit is checked
+ * by `checkMemorisationSettingsEdits`.
+ */
+export function storedMemorisationSettings(
+  config: Partial<MemorisationSettings>
+): MemorisationSettings {
+  const rest: Partial<MemorisationSettings> = { ...config };
+  for (const key of PRESET_KEYS) delete rest[key];
+  const settings = settingsFrom(rest);
+  for (const key of PRESET_KEYS) settings[key] = config[key] ?? MEMORISATION_DEFAULTS[key];
+  return settings;
+}
+
 /** The seven settings are global-only; a project config cannot replace them. */
 export function removeMemorisationProjectOverrides(config: Record<string, unknown>): void {
   for (const key of MEMORISATION_KEYS) delete config[key];
