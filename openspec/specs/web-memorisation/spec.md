@@ -73,7 +73,7 @@ The page SHALL show the `memorisationRepeat` setting as two choices, **Add a new
 
 #### Scenario: Switch to replace
 
-- **WHEN** the user chooses **Replace the earlier one**
+- **WHEN** the user chooses **Replace the earlier one** and confirms
 - **THEN** the global config holds `memorisationRepeat: "replace"` and the choice stays after a reload
 
 ### Requirement: Size cap on the page
@@ -82,7 +82,7 @@ The page SHALL show the size cap as a number box and a **Characters** or **Token
 
 #### Scenario: Save a token cap
 
-- **WHEN** the user enters 500, chooses **Tokens** and saves
+- **WHEN** the user enters 500, chooses **Tokens**, saves and confirms
 - **THEN** the global config holds `memorisationMaxSize: 500` and `memorisationSizeUnit: "tokens"`, and the values stay after a reload
 
 #### Scenario: Too small
@@ -171,7 +171,7 @@ The recall box SHALL read `label:name` as a label, and `label:"two words"` for a
 
 ### Requirement: Comma-separated labels in the recall box
 
-When the recall box text, after any `label:` terms, contains a comma (`,`, the Chinese `，` or the Arabic `،`), the page SHALL read each comma-separated part as a label and send no query. Spaces around a comma SHALL NOT matter. Empty parts and repeats, ignoring case, SHALL be dropped. A bar (`|`) between labels SHALL mean OR: the page SHALL send `a|b` as one label, so a record needs only one of its alternatives. A comma means AND. Text with a bar and no comma SHALL also be read as labels and send no query.
+When the recall box text, after any `label:` terms, contains a comma (`,`, the Chinese `，` or the Arabic `،`), the page SHALL read each comma-separated part as a label and send no query. Spaces around a comma SHALL NOT matter. Empty parts and repeats, ignoring case, SHALL be dropped. A bar (`|`) between labels SHALL mean OR: the page SHALL send `a|b` as one label, so a record needs only one of its alternatives. A comma means AND. Text with a bar and no comma SHALL also be read as labels.
 
 #### Scenario: Labels with commas
 
@@ -409,7 +409,7 @@ The Size cap card SHALL show a **Short**, **Medium**, **Long** or **Custom** cho
 
 #### Scenario: Choose Short
 
-- **WHEN** the presets are the defaults and the user chooses **Short** with **Characters** and saves
+- **WHEN** the presets are the defaults and the user chooses **Short** with **Characters**, saves and confirms
 - **THEN** the number box shows 800 and the global config holds `memorisationMaxSize: 800`
 
 #### Scenario: Type a custom number
@@ -433,12 +433,12 @@ The Size cap card SHALL have an **Edit presets** button. It SHALL open three num
 
 #### Scenario: Edit the selected preset
 
-- **WHEN** **Short** is selected with a cap of 800 characters, and the user sets Short to 1000 in the editor and saves
+- **WHEN** **Short** is selected with a cap of 800 characters, and the user sets Short to 1000 in the editor, saves and confirms
 - **THEN** the global config holds `memorisationShortSize: 1000` and `memorisationMaxSize: 1000`, and **Short** stays selected
 
 #### Scenario: Edit another preset
 
-- **WHEN** **Medium** is selected, and the user sets Long to 8000 and saves
+- **WHEN** **Medium** is selected, and the user sets Long to 8000, saves and confirms
 - **THEN** the global config holds `memorisationLongSize: 8000`, the cap is unchanged, and **Long** shows 8000
 
 #### Scenario: Token estimate beside each box
@@ -462,10 +462,49 @@ The preset editor SHALL show the broken rule and SHALL NOT save when a value is 
 
 #### Scenario: Reset
 
-- **WHEN** the user presses **Reset presets** and then **Save**
+- **WHEN** the user presses **Reset presets**, then **Save presets**, and confirms
 - **THEN** the global config holds 800, 2000 and 5000
 
 #### Scenario: Cancel
 
 - **WHEN** the user changes Short in the editor and presses **Cancel**
 - **THEN** the boxes close and the global config is unchanged
+
+### Requirement: Memorisation settings confirm before saving
+
+Every save on the Memorisation page SHALL open a confirm dialog first and SHALL send nothing until the user confirms. The saves are the size cap **Save**, the repeat choice, the rerank switch and **Save presets**. The dialog SHALL have a title that names the setting, a plain sentence on the effect, **Cancel** and a confirm button. **Cancel** SHALL leave the saved value in place.
+
+#### Scenario: Save the size cap
+
+- **WHEN** the user enters 1000 with **Characters** and selects **Save**
+- **THEN** a dialog titled "Change the size cap?" says that new memorisations above 1,000 characters will be refused and that saved records stay as they are, and nothing is sent until the user confirms
+
+#### Scenario: Choose a repeat option
+
+- **WHEN** the user chooses **Replace the earlier one** while **Add a new memorisation** is saved
+- **THEN** a dialog states what the choice does, nothing is sent, and **Cancel** leaves **Add a new memorisation** selected
+
+#### Scenario: Toggle rerank
+
+- **WHEN** the user turns on **Rerank text recall (experimental)**
+- **THEN** a dialog titled "Turn on reranking?" opens, nothing is sent, and **Cancel** leaves the switch off
+
+#### Scenario: Save presets
+
+- **WHEN** the user sets Short to 1000 while Short is the selected preset, and selects **Save presets**
+- **THEN** a dialog lists Short, Medium and Long with their values, says the size cap moves to 1,000 characters too, and the editor stays open until the user confirms and the save succeeds
+
+#### Scenario: Invalid preset values
+
+- **WHEN** the user sets Short to 2500 while Medium is 2000 and selects **Save presets**
+- **THEN** the editor shows the rule on the page and no dialog opens
+
+#### Scenario: Progress and success
+
+- **WHEN** the user confirms and the request is running
+- **THEN** the dialog shows progress, and it closes when the save succeeds
+
+#### Scenario: The server refuses a save
+
+- **WHEN** the user confirms and the server answers with an error
+- **THEN** the dialog stays open and shows the server's reason, and the saved value is unchanged

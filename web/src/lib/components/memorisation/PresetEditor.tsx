@@ -29,8 +29,9 @@ const draftsOf = (presets: Record<Preset, number>): Drafts => ({
 
 /**
  * Edits the three note length presets, in characters. The boxes open from the saved values.
- * Save checks the numbers first and names the broken rule; Reset presets only fills the
- * defaults, so nothing saves until Save.
+ * Save checks the numbers first and names the broken rule; only valid numbers go to `onSave`,
+ * which asks the user to confirm. Reset presets only fills the defaults, so nothing saves until
+ * Save.
  */
 export function PresetEditor({
   presets,
@@ -39,8 +40,8 @@ export function PresetEditor({
 }: {
   presets: Record<Preset, number>;
   busy: boolean;
-  /** Resolves true when the server accepted the values. */
-  onSave: (values: Record<Preset, number>) => Promise<boolean>;
+  /** Called with values that passed the checks. `onSaved` closes the editor once they are saved. */
+  onSave: (values: Record<Preset, number>, onSaved: () => void) => void;
 }) {
   const { t, language } = useI18n();
   const [drafts, setDrafts] = useState<Drafts | null>(null);
@@ -86,11 +87,11 @@ export function PresetEditor({
 
   const flagged = problemPresets(problem);
 
-  async function save(current: Drafts) {
+  function save(current: Drafts) {
     const checked = checkPresets(current);
     if ("problem" in checked) return setProblem(checked.problem);
     setProblem(null);
-    if (await onSave(checked.presets)) setDrafts(null);
+    onSave(checked.presets, () => setDrafts(null));
   }
 
   return (
@@ -131,7 +132,7 @@ export function PresetEditor({
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={busy} onClick={() => void save(drafts)}>
+        <Button type="button" disabled={busy} onClick={() => save(drafts)}>
           {t("memorisation-preset-save")}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={() => setDrafts(null)}>

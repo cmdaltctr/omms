@@ -598,7 +598,9 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 
 ### Repeat choice
 
-**Repeat memorisation** sets `memorisationRepeat`. It saves when you select a choice.
+Every save on this page asks first. Each dialog names the setting, says what it does, and offers **Cancel** and a confirm button. Nothing is sent until you confirm. The dialog shows progress while it saves, shows a server error inside itself and stays open, and closes when the save succeeds.
+
+**Repeat memorisation** sets `memorisationRepeat`. Selecting a choice opens a **Change the repeat choice?** dialog that says what the choice does. It saves when you confirm. **Cancel** leaves the saved choice selected.
 
 | Choice                      | Key value | Effect                                                                                   |
 | --------------------------- | --------- | ---------------------------------------------------------------------------------------- |
@@ -607,7 +609,7 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 
 ### Size cap
 
-**Size cap** sets `memorisationMaxSize` and `memorisationSizeUnit`. Pick a note length or enter a number. Choose **Characters** or **Tokens**, then select **Save**. The two values save together, because the allowed range depends on the unit.
+**Size cap** sets `memorisationMaxSize` and `memorisationSizeUnit`. Pick a note length or enter a number. Choose **Characters** or **Tokens**, then select **Save**. A **Change the size cap?** dialog then says what the new cap does, for example that new memorisations above 1,000 characters are refused and saved records stay as they are. The two values save together when you confirm, because the allowed range depends on the unit.
 
 Above the number box, a **Short**, **Medium**, **Long** or **Custom** choice shows the note length. The agent reads this length and sizes its notes to it. See [Using memory: Note shape and length](using-memory.md#note-shape-and-length).
 
@@ -627,26 +629,27 @@ Above the number box, a **Short**, **Medium**, **Long** or **Custom** choice sho
 | Characters | 100 to 20,000 | The default is 2,000 characters.                           |
 | Tokens     | 25 to 5,000   | An estimate: about one token for every four bytes of text. |
 
-A number outside the range saves nothing. The page then shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
+A number outside the range saves nothing and opens no dialog. The page shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
 
 ### Edit presets
 
 **Edit presets** on the Size cap card opens three number boxes, one each for Short, Medium and Long. Each box is in characters, with "about N tokens" beside it. N is the characters divided by 4, rounded up.
 
-| Button            | What it does                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| **Save presets**  | Saves the three values as `memorisationShortSize`, `memorisationMediumSize` and `memorisationLongSize`. |
-| **Cancel**        | Closes the boxes and drops your edits.                                                                  |
-| **Reset presets** | Fills the boxes with 800, 2,000 and 5,000. It does not save.                                            |
+| Button            | What it does                                                                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Save presets**  | Opens a **Save the note length presets?** dialog. On confirm, saves the three values as `memorisationShortSize`, `memorisationMediumSize` and `memorisationLongSize`. |
+| **Cancel**        | Closes the boxes and drops your edits.                                                                                                                                |
+| **Reset presets** | Fills the boxes with 800, 2,000 and 5,000. It does not save.                                                                                                          |
 
-- Each value is a whole number from 100 to 20,000. Short must be less than Medium, and Medium must be less than Long. Each preset must also be at least one token above the one below it. OMMS refuses a bad edit, shows the rule, and keeps the previous values.
+- Each value is a whole number from 100 to 20,000. Short must be less than Medium, and Medium must be less than Long. Each preset must also be at least one token above the one below it. OMMS refuses a bad edit, shows the rule on the page, opens no dialog, and keeps the previous values.
+- The dialog lists the three values. When the selected preset changed, it also says that the size cap moves to the new value. The boxes stay open until the save succeeds. **Cancel** in the dialog keeps the boxes and your edits.
 - Saving the selected preset also writes the size cap to the new value.
 - Editing a different preset leaves the size cap alone.
 - The presets are global settings. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
 
 ### Rerank text recall
 
-**Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default.
+**Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default. Turning it on or off opens a **Turn on reranking?** or **Turn off reranking?** dialog. It saves when you confirm. **Cancel** leaves the switch as saved.
 
 - With the switch on, text recall asks your reranker server to reorder the matches. Each match keeps its own confidence score, and the one-clear-match rule reads the first two in the new order. A match below the similarity threshold is still left out, so a recall that matches nothing still says so. Linked-space matches still follow own-space matches and are never reranked.
 - The reranker server is the one from the Memory settings page (`rerankerApiUrl` and `rerankerModel`). While its URL or model is missing, the switch stays visible but disabled, with the reason. Set the server first on the Memory settings page.
