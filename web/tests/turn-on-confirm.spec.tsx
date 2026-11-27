@@ -1,7 +1,16 @@
 import { beforeEach, expect, it } from "bun:test";
 import { Button } from "../src/lib/components/ui/button";
+import { Switch } from "../src/lib/components/ui/switch";
 import { setLanguage } from "../src/lib/i18n/index";
-import { allText, installReact, resetRender, settle, text, type Node } from "./space-kit.tsx";
+import {
+  allText,
+  byType,
+  installReact,
+  resetRender,
+  settle,
+  text,
+  type Node,
+} from "./space-kit.tsx";
 
 installReact();
 const { TurnOnAction, TurnOnDialog } = await import("../src/lib/components/memory/TurnOnAction");
@@ -59,20 +68,24 @@ it("reads the question in Chinese and Arabic", async () => {
 });
 
 const { HostSettings } = await import("../src/lib/components/memory/HostSettings");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 
 function fakeBackfill(on: boolean, saves: Record<string, unknown>[]) {
   return {
     snapshot: { settings: { autoBackfill: { globalValue: on } }, secrets: {} },
     lists: {},
     busy: false,
-    save: async (edits: Record<string, unknown>) => void saves.push(edits),
+    save: async (edits: Record<string, unknown>) => {
+      saves.push(edits);
+      return { success: true };
+    },
     saveModel: () => {},
   } as never;
 }
 const autoImportBox = (tree: Node[]) =>
   tree.find((node) => node.props.id === "memory-section-auto-import")!;
-const checkbox = (tree: Node[]) =>
-  tree.find((node) => node.type === "input" && node.props.type === "checkbox")!;
+const checkbox = (tree: Node[]) => byType(tree, Switch)[0]!;
 
 it("asks with the Turn on dialog before the settings checkbox turns automatic import on", async () => {
   const saves: Record<string, unknown>[] = [];
@@ -80,7 +93,7 @@ it("asks with the Turn on dialog before the settings checkbox turns automatic im
   const views = [HostSettings, TurnOnDialog];
   let tree = await settle(element, views);
   expect(autoImportBox(tree)).toBeDefined();
-  checkbox(tree).props.onChange({ target: { checked: true } });
+  checkbox(tree).props.onCheckedChange(true);
   tree = await settle(element, views);
   expect(saves).toHaveLength(0);
   expect(allText(tree)).toContain("Turn on automatic import?");
@@ -90,20 +103,31 @@ it("asks with the Turn on dialog before the settings checkbox turns automatic im
   expect(saves).toHaveLength(0);
   expect(allText(tree)).not.toContain("Turn on automatic import?");
   // Confirm saves once.
-  checkbox(tree).props.onChange({ target: { checked: true } });
+  checkbox(tree).props.onCheckedChange(true);
   tree = await settle(element, views);
   buttons(tree, "Turn on").at(-1)!.props.onClick();
   expect(allText(await settle(element, views))).not.toContain("Turn on automatic import?");
   expect(saves).toEqual([{ autoBackfill: true }]);
 });
 
-it("turns automatic import off from the settings checkbox at once, with no dialog", async () => {
+it("asks before the settings checkbox turns automatic import off, then saves the same edit", async () => {
   const saves: Record<string, unknown>[] = [];
   const element = <HostSettings host="pi" backfill={fakeBackfill(true, saves)} />;
   const views = [HostSettings, TurnOnDialog];
   let tree = await settle(element, views);
-  checkbox(tree).props.onChange({ target: { checked: false } });
+  checkbox(tree).props.onCheckedChange(false);
   tree = await settle(element, views);
+  expect(saves).toHaveLength(0);
+  const dialog = tree.find((node) => node.type === SettingsConfirmDialog)!;
+  expect(dialog.props.title).toBe("Turn automatic import off?");
+  // Cancel keeps the box ticked and saves nothing.
+  dialog.props.onClose();
+  tree = await settle(element, views);
+  expect(saves).toHaveLength(0);
+  expect(checkbox(tree).props.checked).toBe(true);
+  // Confirm saves the same edit as before the rule.
+  checkbox(tree).props.onCheckedChange(false);
+  tree = await settle(element, views);
+  await tree.find((node) => node.type === SettingsConfirmDialog)!.props.onConfirm();
   expect(saves).toEqual([{ autoBackfill: false }]);
-  expect(allText(tree)).not.toContain("Turn on automatic import?");
 });

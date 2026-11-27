@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Select } from "$lib/components/ui/select";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { SettingRow } from "./SettingRow";
 import {
   beginSettingsRead,
@@ -14,6 +18,7 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { useCardText } from "$lib/i18n/settings-cards";
 import { externalMissing, hostModelEdit } from "$lib/external-api-settings";
 import { hostLabel } from "$lib/host-label";
+import { fill } from "$lib/skills-model";
 import { ClaudeCaptureStatus, type ClaudeCaptureState } from "./ClaudeCaptureStatus";
 import { ReadOnlyNote } from "./ReadOnlyNote";
 
@@ -36,6 +41,8 @@ type ModelList = { available: boolean; models?: Model[]; reason?: string };
 export function ModelsSection() {
   const s = useSettingsText();
   const t = useCardText();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [lists, setLists] = useState<Record<string, ModelList>>({});
   const [message, setMessage] = useState("");
@@ -69,7 +76,17 @@ export function ModelsSection() {
   }, []);
 
   const readOnly = snapshot?.readOnly === true;
-  async function save(host: string, choice: string) {
+  /** A model value in plain words: the two special choices have names, the rest is provider/model. */
+  const modelText = (value: unknown) =>
+    value === "inherit"
+      ? s("Session model")
+      : value === "external"
+        ? s("External API")
+        : value == null
+          ? s("Not set")
+          : String(value);
+  /** Asks first, with each setting the model choice changes. The card's own feedback stays. */
+  function save(host: string, choice: string) {
     if (!snapshot) return;
     let edits: Record<string, string>;
     try {
@@ -78,6 +95,28 @@ export function ModelsSection() {
       setMessage(s((error as Error).message));
       return;
     }
+    const providerKey = `${host}Provider`;
+    const modelKey = `${host}Model`;
+    const fields = [
+      { key: providerKey, label: name(providerKey) },
+      { key: modelKey, label: name(modelKey), print: modelText },
+    ];
+    const inForce = {
+      [providerKey]: snapshot.settings[providerKey]?.globalValue,
+      [modelKey]: snapshot.settings[modelKey]?.globalValue,
+    };
+    const rows = changes(inForce, edits, fields);
+    ask({
+      title: fill(s("Save the {host} model?"), { host: hostLabel(host as "opencode" | "pi") }),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save model"),
+      busyLabel: s("Saving…"),
+      run: () => saveChoice(edits),
+    });
+  }
+  /** Saves the choice. A refusal keeps the dialog open with its reason. */
+  async function saveChoice(edits: Record<string, string>): Promise<ConfirmResult> {
+    if (!snapshot) return { success: false };
     setBusy(true);
     let result: { migratedLegacy: boolean } | undefined;
     let failure: Error | undefined;
@@ -109,6 +148,7 @@ export function ModelsSection() {
         )
       );
     }
+    return result ? { success: true } : { success: false, error: failure?.message ?? "" };
   }
 
   const missing = externalMissing({
@@ -159,11 +199,12 @@ export function ModelsSection() {
           {message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }
 
-function ModelCard({
+export function ModelCard({
   host,
   model,
   provider,

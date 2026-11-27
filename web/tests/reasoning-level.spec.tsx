@@ -71,6 +71,17 @@ const pick = (tree: Node[], value: string) =>
   (select(tree).props.onChange as (event: unknown) => void)({ target: { value } });
 const saveButton = (tree: Node[]) =>
   byType(tree, Button).find((node) => text(node.props.children).includes("Save reasoning level"))!;
+const dialogOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+/** What the dialog lists: one row per setting the save changes. */
+const rowsOf = (dialog: Node) => dialog.props.body.props.changes as unknown[];
+const posts = () => requests.filter((request) => request.path === SAVE);
+/** Confirm the open dialog, then let it close as it does when the request succeeds. */
+async function confirm(tree: Node[]) {
+  const dialog = dialogOf(tree)!;
+  const result = await dialog.props.onConfirm();
+  dialog.props.onClose();
+  return result;
+}
 
 it("offers the levels of the model and names its default effort", async () => {
   const tree = await settle(card(), own);
@@ -103,6 +114,8 @@ it("offers on and off for a model with reasoning but no effort list, and posts t
   pick(tree, "on");
   tree = await settle(card({ savedModel: "x/toggle" }), own);
   (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card({ savedModel: "x/toggle" }), own);
+  await confirm(tree);
   await settle(card({ savedModel: "x/toggle" }), own);
   expect(requests.find((r) => r.path === SAVE)!.body).toEqual({
     revision: "rev-9",
@@ -173,6 +186,8 @@ it("posts the revision and the level, then reloads the settings", async () => {
   tree = await settle(card(), own);
   (saveButton(tree).props.onClick as () => void)();
   tree = await settle(card(), own);
+  await confirm(tree);
+  tree = await settle(card(), own);
   const post = requests.find((request) => request.path === SAVE)!;
   expect(post.method).toBe("POST");
   expect(post.body).toEqual({ revision: "rev-9", level: "low" });
@@ -203,7 +218,12 @@ it("drops a pending pick that the new saved endpoint does not offer", async () =
   expect(options(tree)).not.toContain("off");
   expect(select(tree).props.value).toBe("default");
   (saveButton(tree).props.onClick as () => void)();
-  await settle(card(other), own);
+  tree = await settle(card(other), own);
+  // The level on screen is the saved one, so the dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
   expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
     revision: "rev-9",
     level: "default",
@@ -232,6 +252,8 @@ it("keeps the submitted level on screen when the settings reload fails after a s
   tree = await settle(card(), own);
   (saveButton(tree).props.onClick as () => void)();
   tree = await settle(card(), own);
+  await confirm(tree);
+  tree = await settle(card(), own);
   expect(requests.some((request) => request.path === "/api/settings")).toBe(true);
   expect(allText(tree)).toContain("Reasoning level saved.");
   expect(select(tree).props.value).toBe("low");
@@ -249,17 +271,20 @@ it("turns the Select off while a save runs, so a later pick cannot be lost", asy
   tree = await settle(card(), own);
   (saveButton(tree).props.onClick as () => void)();
   tree = await settle(card(), own);
+  // Nothing runs until the user confirms; the pick is only a draft meanwhile.
+  expect(posts()).toHaveLength(0);
+  const saving = dialogOf(tree)!.props.onConfirm() as Promise<unknown>;
+  tree = await settle(card(), own);
   expect(allText(tree)).toContain("Saving reasoning level");
   expect(select(tree).props.disabled).toBe(true);
 
   release({ body: { revision: "rev-10" } });
+  await saving;
   tree = await settle(card(), own);
   expect(select(tree).props.disabled).toBeFalsy();
 });
 
 const HAND_WRITTEN = { reasoning: { max_tokens: 2000 } };
-const dialogOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
-const posts = () => requests.filter((request) => request.path === SAVE);
 
 it("asks before it replaces a hand-written value, and sends nothing until confirmed", async () => {
   const props = { saved: HAND_WRITTEN };
@@ -314,8 +339,12 @@ it("shows a server error inside the dialog and leaves the card without a saved n
   expect(allText(tree)).not.toContain("Reasoning level saved.");
 });
 
-it("saves straight away, with no dialog, when no hand-written value is saved", async () => {
-  for (const saved of [{}, { reasoning: { effort: "high" } }]) {
+it("asks before an ordinary save, and sends nothing until the user confirms", async () => {
+  const cases = [
+    [{}, "Default (High)"],
+    [{ reasoning: { effort: "high" } }, "High"],
+  ] as const;
+  for (const [saved, from] of cases) {
     resetRender();
     requests = installFetch(() => ({ body: { revision: "rev-10", settings: {} } }));
     let tree = await settle(card({ saved }), own);
@@ -323,9 +352,80 @@ it("saves straight away, with no dialog, when no hand-written value is saved", a
     tree = await settle(card({ saved }), own);
     (saveButton(tree).props.onClick as () => void)();
     tree = await settle(card({ saved }), own);
+
+    const dialog = dialogOf(tree)!;
+    expect(dialog.props.title).toBe("Save reasoning level?");
+    expect(dialog.props.confirmLabel).toBe("Save reasoning level");
+    expect(rowsOf(dialog)).toEqual([{ key: "level", label: "Reasoning level", from, to: "Low" }]);
+    expect(posts()).toHaveLength(0);
+
+    await confirm(tree);
+    tree = await settle(card({ saved }), own);
     expect(dialogOf(tree)).toBeUndefined();
     expect(posts()).toHaveLength(1);
+    expect(posts()[0]!.body).toEqual({ revision: "rev-9", level: "low" });
   }
+});
+
+it("sends nothing on Cancel, and the picked level stays as a draft", async () => {
+  let tree = await settle(card(), own);
+  pick(tree, "low");
+  tree = await settle(card(), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(), own);
+  dialogOf(tree)!.props.onClose();
+  tree = await settle(card(), own);
+
+  expect(dialogOf(tree)).toBeUndefined();
+  expect(posts()).toHaveLength(0);
+  expect(allText(tree)).not.toContain("Reasoning level saved.");
+  // The pick stays, so Save can be used again.
+  expect(select(tree).props.value).toBe("low");
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(), own);
+  await confirm(tree);
+  await settle(card(), own);
+  expect(posts()).toHaveLength(1);
+});
+
+it("keeps a server refusal inside the ordinary-save dialog, which stays open", async () => {
+  requests = installFetch((request) =>
+    request.path === SAVE
+      ? { status: 409, body: { error: "The settings changed. Reload and try again." } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(card(), own);
+  pick(tree, "low");
+  tree = await settle(card(), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(), own);
+  const result = await dialogOf(tree)!.props.onConfirm();
+  expect(result).toMatchObject({
+    success: false,
+    error: "The settings changed. Reload and try again.",
+  });
+  tree = await settle(card(), own);
+  expect(dialogOf(tree)).toBeDefined();
+  expect(posts()).toHaveLength(1);
+  expect(allText(tree)).not.toContain("Reasoning level saved.");
+});
+
+it("opens the dialog with an empty change list for a level that did not change, and saves only on confirm", async () => {
+  // Save stays on for an unchanged level, and it sends the same request as before this rule.
+  const same = { saved: { reasoning: { effort: "high" } } };
+  let tree = await settle(card(same), own);
+  expect(select(tree).props.value).toBe("high");
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(same), own);
+
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
+  tree = await settle(card(same), own);
+  expect(posts()).toHaveLength(1);
+  expect(posts()[0]!.body).toEqual({ revision: "rev-9", level: "high" });
+  expect(allText(tree)).toContain("Reasoning level saved.");
 });
 
 it("shows the replace dialog in Arabic", async () => {

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
+import { Switch as SwitchControl } from "$lib/components/ui/switch";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
 import { useSettingsText } from "$lib/i18n/settings";
 import { skillsApi, type SkillStats } from "$lib/skills-api";
 import { countText, fileSizeText, fill } from "$lib/skills-model";
@@ -9,7 +13,7 @@ import { RecordPast } from "../skills/RecordPast";
 import { useSkillSettings } from "../skills/use-skill-settings";
 import { ReadOnlyNote, useSettingsReadOnly } from "./ReadOnlyNote";
 
-function Switch({
+export function Switch({
   label,
   checked,
   disabled,
@@ -22,13 +26,11 @@ function Switch({
 }) {
   return (
     <label className="flex min-w-0 items-start gap-2.5 text-sm">
-      <input
-        type="checkbox"
-        role="switch"
-        className="mt-1 size-4 shrink-0"
+      <SwitchControl
+        className="mt-0.5"
         checked={checked}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
+        onCheckedChange={onChange}
       />
       <span className="min-w-0 break-words font-medium">{label}</span>
     </label>
@@ -44,12 +46,12 @@ export type SkillLearningCardProps = {
   busy: boolean;
   /** The config file cannot be read, so the two switches cannot save. */
   readOnly?: boolean;
-  confirm: "redact" | "delete" | null;
+  confirm: "delete" | null;
   message: string;
   failure: string;
   onRecording: (on: boolean) => void;
   onRedact: (on: boolean) => void;
-  onConfirm: (what: "redact" | "delete" | null) => void;
+  onConfirm: (what: "delete" | null) => void;
   onDeleteTurns: () => void;
   onRecordPastEnd: () => void;
 };
@@ -107,31 +109,6 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
           disabled={busy || props.readOnly === true}
           onChange={props.onRedact}
         />
-        {confirm === "redact" ? (
-          <Callout tone="warning">
-            <p className="font-medium">{s("Stop removing private text and secrets?")}</p>
-            <p>{s("New turns will be stored as written.")}</p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                disabled={busy}
-                onClick={() => props.onRedact(false)}
-              >
-                {s("Turn off")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => props.onConfirm(null)}
-              >
-                {s("Cancel")}
-              </Button>
-            </div>
-          </Callout>
-        ) : null}
         {!redact ? (
           <Callout tone="danger">
             <p>
@@ -206,12 +183,17 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
 /** Skill learning settings: recording, redaction, the store size and a delete. */
 export function SkillLearningSection() {
   const s = useSettingsText();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const { snapshot, loadError, busy, save } = useSkillSettings();
   const readOnly = useSettingsReadOnly();
   const [stats, setStats] = useState<SkillStats | null>(null);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState("");
-  const [confirm, setConfirm] = useState<"redact" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<"delete" | null>(null);
+  /** The values picked while a dialog asks. Cancel puts the saved ones back. */
+  const [pendingRecording, setPendingRecording] = useState<boolean>();
+  const [pendingRedact, setPendingRedact] = useState<boolean>();
 
   const loadStats = useCallback(async () => {
     const reply = await skillsApi.stats();
@@ -222,8 +204,10 @@ export function SkillLearningSection() {
   }, [loadStats]);
 
   const recordEntry = snapshot?.settings.skillLearning;
+  const savedRecording = recordEntry?.globalValue === true;
+  const savedRedact = snapshot?.settings.skillLearningRedact?.globalValue !== false;
 
-  async function change(edits: Record<string, unknown>) {
+  async function change(edits: Record<string, unknown>): Promise<string | null> {
     setMessage("");
     setFailure("");
     setConfirm(null);
@@ -231,6 +215,63 @@ export function SkillLearningSection() {
     if (error) setFailure(error);
     else setMessage(s("Saved."));
     await loadStats();
+    return error;
+  }
+
+  /** The run every switch dialog shares: save, then drop the pending value once the file agrees. */
+  async function runSwitch(
+    dropPending: (value: boolean | undefined) => void,
+    edits: Record<string, unknown>
+  ) {
+    const error = await change(edits);
+    if (error) return { success: false, error };
+    // The reloaded snapshot shows the saved value, so the picked one can go.
+    dropPending(undefined);
+    return { success: true };
+  }
+
+  /** Asks before the recording switch saves. The switch shows the picked value meanwhile. */
+  function turnRecording(on: boolean) {
+    const edits = { skillLearning: on };
+    setPendingRecording(on);
+    ask({
+      title: s(on ? "Turn on skill learning?" : "Turn off skill learning?"),
+      body: (
+        <SettingsChangeList
+          changes={changes({ skillLearning: savedRecording }, edits, [
+            { key: "skillLearning", label: name("skillLearning") },
+          ])}
+        />
+      ),
+      confirmLabel: s(on ? "Turn on" : "Turn off"),
+      busyLabel: s("Saving…"),
+      onCancel: () => setPendingRecording(undefined),
+      run: () => runSwitch(setPendingRecording, edits),
+    });
+  }
+
+  /** Asks before the redaction switch saves; the dialog carries the old warning when it turns off. */
+  function turnRedact(on: boolean) {
+    const edits = { skillLearningRedact: on };
+    setPendingRedact(on);
+    ask({
+      title: s(on ? "Remove private text and secrets?" : "Stop removing private text and secrets?"),
+      body: (
+        <>
+          <SettingsChangeList
+            changes={changes({ skillLearningRedact: savedRedact }, edits, [
+              { key: "skillLearningRedact", label: name("skillLearningRedact") },
+            ])}
+          />
+          {!on ? <p>{s("New turns will be stored as written.")}</p> : null}
+        </>
+      ),
+      confirmLabel: s(on ? "Turn on" : "Turn off"),
+      busyLabel: s("Saving…"),
+      destructive: !on,
+      onCancel: () => setPendingRedact(undefined),
+      run: () => runSwitch(setPendingRedact, edits),
+    });
   }
 
   async function deleteTurns() {
@@ -246,25 +287,24 @@ export function SkillLearningSection() {
   }
 
   return (
-    <SkillLearningCard
-      recording={recordEntry?.globalValue === true}
-      redact={snapshot?.settings.skillLearningRedact?.globalValue !== false}
-      projectOff={recordEntry?.source === "project" && recordEntry.value === false}
-      stats={stats}
-      busy={busy || !snapshot}
-      readOnly={readOnly}
-      confirm={confirm}
-      message={message}
-      failure={failure || loadError}
-      onRecording={(on) => void change({ skillLearning: on })}
-      onRedact={(on) => {
-        // Turning redaction off asks first; turning it back on needs no question.
-        if (on || confirm === "redact") void change({ skillLearningRedact: on });
-        else setConfirm("redact");
-      }}
-      onConfirm={setConfirm}
-      onDeleteTurns={() => void deleteTurns()}
-      onRecordPastEnd={() => void loadStats()}
-    />
+    <>
+      <SkillLearningCard
+        recording={pendingRecording ?? savedRecording}
+        redact={pendingRedact ?? savedRedact}
+        projectOff={recordEntry?.source === "project" && recordEntry.value === false}
+        stats={stats}
+        busy={busy || !snapshot}
+        readOnly={readOnly}
+        confirm={confirm}
+        message={message}
+        failure={failure || loadError}
+        onRecording={(on) => turnRecording(on)}
+        onRedact={(on) => turnRedact(on)}
+        onConfirm={setConfirm}
+        onDeleteTurns={() => void deleteTurns()}
+        onRecordPastEnd={() => void loadStats()}
+      />
+      {dialog}
+    </>
   );
 }

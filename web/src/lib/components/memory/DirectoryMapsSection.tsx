@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDirectoryMapConfirm } from "@/hooks/useDirectoryMapConfirm";
 import {
   onSettingsSnapshot,
   publishSettingsSnapshot,
@@ -18,6 +19,7 @@ import {
   type DirectoryMapReview,
   type SuggestedDirectory,
 } from "$lib/directory-maps";
+import { DirectoryMapIgnoredList } from "./DirectoryMapIgnoredList";
 import { DirectoryMapHost } from "../settings/DirectoryMapHost";
 import { DirectoryMapReviewDialog } from "../settings/DirectoryMapReviewDialog";
 import { IgnoreAllDialog } from "../settings/IgnoreAllDialog";
@@ -39,6 +41,7 @@ type View = {
 };
 
 const ALL_HOSTS = ["pi", "opencode", "claude-code"] as const;
+const LOADING = "The list is still loading. Try again in a moment.";
 
 /**
  * The Directory maps card. The Shared view shows the saved maps and ignored
@@ -57,6 +60,7 @@ export function DirectoryMapsSection({
   anchorId?: string;
 } = {}) {
   const s = useSettingsText();
+  const confirms = useDirectoryMapConfirm();
   const [ignoringAll, setIgnoringAll] = useState<{ host: WebHost; rows: Suggested[] }>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState<View>();
@@ -124,20 +128,21 @@ export function DirectoryMapsSection({
   // The server supplies resolved paths, also used by rows and Restore.
   const ignoredList = () => view?.ignored ?? [];
 
-  /** Save removals, Ignore, and Restore: one immediate save, then a fresh list. */
+  /** The page check before a dialog opens. A refused save must say so; a pending refresh and a
+   * running save already show their own message. */
+  function ready(): boolean {
+    if (snapshot && view && !saving.current && !refreshNeeded) return true;
+    if (!saving.current && !refreshNeeded) setMessage(LOADING);
+    return false;
+  }
+  /** Save removals, Ignore, and Restore: one save, then a fresh list. The answer is the
+   * failure message, or undefined once saved, so the confirm dialog can show the reason. */
   async function saveNow(
     edits: Record<string, unknown>,
     done: string,
     failed: string
-  ): Promise<boolean> {
-    if (!snapshot || !view || saving.current || refreshNeeded) {
-      // A refused save must say so; a silent no-op looks like a broken button.
-      // A pending refresh and a running save already show their own message.
-      if (!saving.current && !refreshNeeded) {
-        setMessage("The list is still loading. Try again in a moment.");
-      }
-      return false;
-    }
+  ): Promise<string | undefined> {
+    if (!snapshot || !ready()) return LOADING;
     saving.current = true;
     setBusy(true);
     try {
@@ -149,20 +154,24 @@ export function DirectoryMapsSection({
       const conflict = error instanceof SettingsRequestError && error.status === 409;
       try {
         if (!conflict) {
-          setMessage(failed);
+          // The server's reason follows the card's own words, when it gave one.
+          const reason = error instanceof Error ? error.message : "";
+          const text = reason ? `${failed} ${reason}` : failed;
+          setMessage(text);
           await reloadSettingsSnapshot<Snapshot>();
-          return false;
+          return text;
         }
-        setMessage("Settings changed elsewhere. Check the list and try again.");
+        let failure = "Settings changed elsewhere. Check the list and try again.";
+        setMessage(failure);
         try {
           await refreshReview();
         } catch {
           setRefreshNeeded("conflict");
-          setMessage(
-            "Settings changed elsewhere and could not be refreshed. Refresh the list, then try again."
-          );
+          failure =
+            "Settings changed elsewhere and could not be refreshed. Refresh the list, then try again.";
+          setMessage(failure);
         }
-        return false;
+        return failure;
       } finally {
         saving.current = false;
         setBusy(false);
@@ -180,22 +189,30 @@ export function DirectoryMapsSection({
       saving.current = false;
       setBusy(false);
     }
-    return true;
+    return undefined;
   }
   function saveRemovals() {
-    void saveNow(
-      { importPathMaps: mapsToSave(view?.saved ?? [], removed) },
-      "Saved. Removed maps stop applying at the next import or backfill run.",
-      "Removals could not be saved. Try again."
-    ).then((saved) => {
-      if (saved) setRemoved(new Set());
+    if (!ready()) return;
+    const maps = view?.saved ?? [];
+    const edits = mapsToSave(maps, removed);
+    confirms.askRemovals(maps, edits, async () => {
+      const failure = await saveNow(
+        { importPathMaps: edits },
+        "Saved. Removed maps stop applying at the next import or backfill run.",
+        "Removals could not be saved. Try again."
+      );
+      if (failure === undefined) setRemoved(new Set());
+      return failure;
     });
   }
   function ignore(row: Suggested) {
-    void saveNow(
-      { importIgnoredDirectories: [...new Set([...ignoredList(), row.directory])] },
-      "Ignored. The directory stays unimported.",
-      "The directory could not be ignored. Try again."
+    if (!ready()) return;
+    confirms.askIgnore(row.directory, () =>
+      saveNow(
+        { importIgnoredDirectories: [...new Set([...ignoredList(), row.directory])] },
+        "Ignored. The directory stays unimported.",
+        "The directory could not be ignored. Try again."
+      )
     );
   }
   function ignoreAll() {
@@ -205,16 +222,19 @@ export function DirectoryMapsSection({
       { importIgnoredDirectories: ignoreAllList(ignoredList(), rows) },
       "Ignored. The directories stay unimported.",
       "The directories could not be ignored. Try again."
-    ).then((saved) => {
+    ).then((failure) => {
       // A failed or refused save keeps the dialog open, with the reason on the page.
-      if (saved) setIgnoringAll(undefined);
+      if (failure === undefined) setIgnoringAll(undefined);
     });
   }
   function restore(directory: string) {
-    void saveNow(
-      { importIgnoredDirectories: ignoredList().filter((item) => item !== directory) },
-      "Restored. The directory shows again in each host list that reported it.",
-      "The directory could not be restored. Try again."
+    if (!ready()) return;
+    confirms.askRestore(directory, () =>
+      saveNow(
+        { importIgnoredDirectories: ignoredList().filter((item) => item !== directory) },
+        "Restored. The directory shows again in each host list that reported it.",
+        "The directory could not be restored. Try again."
+      )
     );
   }
   async function refreshReview() {
@@ -408,36 +428,11 @@ export function DirectoryMapsSection({
               ))}
             </div>
           </details>
-          <details className="min-w-0 rounded-lg border border-border p-3">
-            <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
-              <h3 className="inline text-subsection-title font-semibold">
-                {s("Ignored directories")}
-              </h3>{" "}
-              · {view?.ignored?.length ?? 0}
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                {s("Ignored directories stay unimported and leave the unresolved counts.")}
-              </span>
-            </summary>
-            <ul className="mt-3 space-y-1 text-sm">
-              {!view?.ignored?.length && <li className="text-muted-foreground">{s("none")}</li>}
-              {view?.ignored?.map((directory) => (
-                <li key={directory} className="flex min-w-0 items-start gap-2">
-                  <code dir="ltr" className="min-w-0 flex-1 break-all">
-                    {directory}
-                  </code>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
-                    aria-label={`${s("Restore")} ${directory}`}
-                    disabled={busy || readOnly || !!refreshNeeded || !snapshot}
-                    onClick={() => restore(directory)}
-                  >
-                    {s("Restore")}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </details>
+          <DirectoryMapIgnoredList
+            ignored={view?.ignored}
+            restoreDisabled={busy || readOnly || !!refreshNeeded || !snapshot}
+            onRestore={restore}
+          />
         </>
       )}
       {hosts.map((host) => {
@@ -495,6 +490,7 @@ export function DirectoryMapsSection({
           {s(message)}
         </p>
       )}
+      {confirms.dialog}
     </section>
   );
 }

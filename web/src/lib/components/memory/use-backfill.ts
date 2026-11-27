@@ -35,6 +35,9 @@ export type BackfillRow = {
 } | null;
 export type Rows = Record<BackfillHost, BackfillRow>;
 
+/** What a save or a control action answers, so a confirm dialog can hold a refusal open. */
+type ActionResult = { success: boolean; error?: string };
+
 const POLL_MS = 3000;
 
 /**
@@ -89,9 +92,10 @@ export function useBackfill() {
     };
   }, []);
 
-  async function save(edits: Record<string, unknown>) {
-    if (!snapshot) return;
+  async function save(edits: Record<string, unknown>): Promise<ActionResult> {
+    if (!snapshot) return { success: false };
     setBusy(true);
+    let failure: string | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
@@ -99,16 +103,22 @@ export function useBackfill() {
       });
       setMessage(s("Saved. Changes apply at the next run."));
     } catch (error) {
-      setMessage((error as Error).message);
+      failure = (error as Error).message;
+      setMessage(failure);
     }
     await reloadSettingsSnapshot<Snapshot>();
     setBusy(false);
+    return failure === undefined ? { success: true } : { success: false, error: failure };
   }
 
-  async function control(host: BackfillHost, action: "run" | "pause" | "resume") {
+  async function control(
+    host: BackfillHost,
+    action: "run" | "pause" | "resume"
+  ): Promise<ActionResult> {
     setBusy(true);
     // Pausing with no run going only saves the flag; nothing stops "after the current exchange".
     const live = runs?.[host]?.run?.state === "running";
+    let failure: string | undefined;
     try {
       await settingsRequest(`/api/settings/backfill/${host}/${action}`, {
         method: "POST",
@@ -124,17 +134,20 @@ export function useBackfill() {
         )
       );
     } catch (error) {
-      setMessage((error as Error).message);
+      failure = (error as Error).message;
+      setMessage(failure);
     }
     await Promise.all([loadRuns(), loadRows()]);
     setBusy(false);
+    return failure === undefined ? { success: true } : { success: false, error: failure };
   }
 
-  function saveModel(host: ModelBackfillHost, choice: string) {
+  async function saveModel(host: ModelBackfillHost, choice: string): Promise<ActionResult> {
     try {
-      void save(backfillModelEdit(host, choice.trim()));
+      return await save(backfillModelEdit(host, choice.trim()));
     } catch (error) {
       setMessage(s((error as Error).message));
+      return { success: false, error: (error as Error).message };
     }
   }
 

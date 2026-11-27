@@ -19,6 +19,8 @@ const { MemoryInjectionSection } =
   await import("../src/lib/components/memory/MemoryInjectionSection.tsx");
 const { AutoCleanupSettings } =
   await import("../src/lib/components/memory/AutoCleanupSettings.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { SettingRow } = await import("../src/lib/components/settings/SettingRow.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
@@ -199,10 +201,126 @@ it("keeps the profile tidy switch in the form until one Save", async () => {
   expect(toggle(tree).props.checked).toBe(false);
   const save = byType(tree, Button).find((node) => text(node.props.children).trim() === "Save")!;
   save.props.onClick();
+  tree = await settle(<AutoCleanupSettings />, own);
+  const dialog = byType(tree, SettingsConfirmDialog)[0]!;
+  await dialog.props.onConfirm();
+  dialog.props.onClose();
   await settle(<AutoCleanupSettings />, own);
   const patches = requests.filter((request) => request.method === "PATCH");
   expect(patches).toHaveLength(1);
   expect(patches[0]!.body.edits).toEqual({ userProfileAutoCleanupEnabled: false });
+});
+
+it("asks before it saves the profile tidy settings, and sends nothing until the user confirms", async () => {
+  const requests = installFetch((request) =>
+    request.method === "GET"
+      ? {
+          body: snapshot({
+            userProfileAutoCleanupEnabled: { value: true, globalValue: true },
+            userProfileAutoCleanupInterval: { value: 500, globalValue: 500 },
+          }),
+        }
+      : { body: { ok: true } }
+  );
+  let tree = await settle(<AutoCleanupSettings />, own);
+  const { Button } = await import("../src/lib/components/ui/button.tsx");
+  const toggle = (nodes: Node[]) => nodes.find((node) => node.props.id === "auto-cleanup-enabled")!;
+  const field = (nodes: Node[]) => nodes.find((node) => node.props.id === "auto-cleanup-interval")!;
+  toggle(tree).props.onCheckedChange(false);
+  field(tree).props.onChange({ target: { value: "300" } });
+  tree = await settle(<AutoCleanupSettings />, own);
+  byType(tree, Button)
+    .find((node) => text(node.props.children).trim() === "Save")!
+    .props.onClick();
+  tree = await settle(<AutoCleanupSettings />, own);
+
+  const dialog = byType(tree, SettingsConfirmDialog)[0]!;
+  expect(dialog.props.title).toBe("Save automatic profile cleanup?");
+  expect(dialog.props.confirmLabel).toBe("Save");
+  expect(dialog.props.body.props.changes).toEqual([
+    {
+      key: "userProfileAutoCleanupEnabled",
+      label: "Tidy the profile automatically",
+      from: "On",
+      to: "Off",
+    },
+    {
+      key: "userProfileAutoCleanupInterval",
+      label: "Profile tidy interval",
+      from: "500 prompts",
+      to: "300 prompts",
+    },
+  ]);
+  expect(requests.filter((request) => request.method === "PATCH")).toHaveLength(0);
+  // Cancel keeps what the user chose as a draft, and sends nothing.
+  dialog.props.onClose();
+  tree = await settle(<AutoCleanupSettings />, own);
+  expect(byType(tree, SettingsConfirmDialog)).toHaveLength(0);
+  expect(requests.filter((request) => request.method === "PATCH")).toHaveLength(0);
+  expect(toggle(tree).props.checked).toBe(false);
+  expect(field(tree).props.value).toBe("300");
+});
+
+it("sends the same tidy request as before the rule once the user confirms", async () => {
+  const requests = installFetch((request) =>
+    request.method === "GET"
+      ? {
+          body: snapshot({
+            userProfileAutoCleanupEnabled: { value: true, globalValue: true },
+            userProfileAutoCleanupInterval: { value: 500, globalValue: 500 },
+          }),
+        }
+      : { body: { ok: true } }
+  );
+  let tree = await settle(<AutoCleanupSettings />, own);
+  const { Button } = await import("../src/lib/components/ui/button.tsx");
+  const field = (nodes: Node[]) => nodes.find((node) => node.props.id === "auto-cleanup-interval")!;
+  field(tree).props.onChange({ target: { value: "300" } });
+  tree = await settle(<AutoCleanupSettings />, own);
+  byType(tree, Button)
+    .find((node) => text(node.props.children).trim() === "Save")!
+    .props.onClick();
+  tree = await settle(<AutoCleanupSettings />, own);
+  const dialog = byType(tree, SettingsConfirmDialog)[0]!;
+  expect(await dialog.props.onConfirm()).toEqual({ success: true });
+  dialog.props.onClose();
+  await settle(<AutoCleanupSettings />, own);
+  const patches = requests.filter((request) => request.method === "PATCH");
+  expect(patches).toHaveLength(1);
+  expect(patches[0]!.body).toEqual({
+    edits: { userProfileAutoCleanupInterval: 300 },
+    revision: "rev-1",
+  });
+});
+
+it("keeps a tidy-save refusal inside the dialog, which stays open", async () => {
+  const REFUSED = "Config changed. Reload settings and save again.";
+  installFetch((request) =>
+    request.method === "GET"
+      ? {
+          body: snapshot({
+            userProfileAutoCleanupEnabled: { value: true, globalValue: true },
+            userProfileAutoCleanupInterval: { value: 500, globalValue: 500 },
+          }),
+        }
+      : { status: 409, body: { error: REFUSED } }
+  );
+  let tree = await settle(<AutoCleanupSettings />, own);
+  const { Button } = await import("../src/lib/components/ui/button.tsx");
+  const toggle = (nodes: Node[]) => nodes.find((node) => node.props.id === "auto-cleanup-enabled")!;
+  toggle(tree).props.onCheckedChange(false);
+  tree = await settle(<AutoCleanupSettings />, own);
+  byType(tree, Button)
+    .find((node) => text(node.props.children).trim() === "Save")!
+    .props.onClick();
+  tree = await settle(<AutoCleanupSettings />, own);
+  const dialog = byType(tree, SettingsConfirmDialog)[0]!;
+  expect(await dialog.props.onConfirm()).toEqual({ success: false, error: REFUSED });
+  tree = await settle(<AutoCleanupSettings />, own);
+  expect(byType(tree, SettingsConfirmDialog)).toHaveLength(1);
+  expect(allText(tree)).toContain(REFUSED);
+  // The draft stays, so the user can save again.
+  expect(toggle(tree).props.checked).toBe(false);
 });
 
 it("lets search open every Memory and Memorisation page anchor", () => {

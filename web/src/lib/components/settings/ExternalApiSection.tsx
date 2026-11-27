@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
-import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useExternalApiConfirm } from "@/hooks/useExternalApiConfirm";
 import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
 import { useOpenRouterModels } from "@/hooks/useOpenRouterModels";
 import { Callout } from "$lib/components/skills/Callout";
@@ -21,6 +21,7 @@ import { applyOpenRouterPreset, isOpenRouterUrl } from "$lib/openrouter-routing"
 import { providerName } from "$lib/provider-names";
 import { reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { saveSettingEdits } from "$lib/settings-save";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { KeySourceField, type KeyChoice, type SavedKey } from "./KeySourceField";
 import { OpenRouterRouting } from "./OpenRouterRouting";
 import { ReasoningLevel } from "./ReasoningLevel";
@@ -44,11 +45,12 @@ const PROVIDERS = [
   "google-gemini",
 ];
 const URL_PATTERN = /^https?:\/\/\S+$/;
+/** `persist` hands the click to the Replace-the-key-file dialog, which is then the open one. */
+const KEY_DIALOG = "key-file-dialog";
 
 export function ExternalApiSection() {
   const t = useCardText();
   const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
-  const { ask, dialog } = useSettingsConfirm();
   const [fields, setFields] = useState<Record<string, string>>({});
   const [source, setSource] = useState<KeySource>("file");
   const [keyInput, setKeyInput] = useState({ name: "", path: "", value: "" });
@@ -77,6 +79,16 @@ export function ExternalApiSection() {
   }
   const hasKey = keyEntered(source, keyInput);
   const changed = Object.keys(edits).length > 0 || hasKey;
+  const { ask, dialog, askSave } = useExternalApiConfirm({
+    saved: {
+      memoryProvider: saved("memoryProvider"),
+      memoryApiUrl: saved("memoryApiUrl"),
+      memoryModel: saved("memoryModel"),
+    },
+    edits,
+    key: hasKey ? { source, name: keyInput.name, path: keyInput.path } : undefined,
+    savedKey: snapshot?.externalKey ?? null,
+  });
 
   function report(ok: boolean, text: string, status?: number) {
     setFailed(!ok);
@@ -126,11 +138,21 @@ export function ExternalApiSection() {
         return;
       }
     }
-    // An emptied address or model turns the external API off: there is nothing to call.
+    // An emptied address or model turns the external API off: there is nothing to call, so the
+    // confirm dialog says so and no test runs.
     const turnsOff =
       provider !== "orcarouter" && (url === "" || value("memoryModel").trim() === "");
-    if (turnsOff) return persist(snapshot.revision);
-    // The same test as the Test button, once: only a key the provider accepts is saved.
+    if (turnsOff) {
+      return askSave({
+        title: t("Save external API settings?"),
+        lead: t("The external API will be turned off."),
+        confirmLabel: t("Save settings"),
+        busyLabel: t("Saving…"),
+        run: () => runSave(snapshot.revision),
+      });
+    }
+    // The same test as the Test button, once: only a key the provider accepts is saved. A passing
+    // test opens the confirm dialog, and nothing is saved before the user confirms.
     setWorking("save");
     let reply: ExternalTestReply;
     try {
@@ -140,33 +162,45 @@ export function ExternalApiSection() {
       report(false, t((cause as Error).message));
       return;
     }
-    if (reply.ok) return persist(snapshot.revision);
     setWorking("");
+    if (reply.ok) {
+      return askSave({
+        title: t("Save external API settings?"),
+        confirmLabel: t("Save settings"),
+        busyLabel: t("Saving…"),
+        run: () => runSave(snapshot.revision),
+      });
+    }
     if (reply.reason !== "unreachable") {
       report(false, `${t(testFailureText(reply.reason))} ${t("Nothing was saved.")}`, reply.status);
       return;
     }
-    const revision = snapshot.revision;
-    ask({
+    // The test cannot reach the server: the existing Save-anyway dialog is this click's
+    // confirmation, so it also lists the changes and no second dialog follows it.
+    askSave({
       title: t("Save without a working test?"),
-      body: (
-        <p>
-          {t(testFailureText(reply.reason))}{" "}
-          {t("Save these settings anyway? Capture fails until OMMS can reach the address.")}
-        </p>
-      ),
+      lead: `${t(testFailureText(reply.reason))} ${t("Save these settings anyway? Capture fails until OMMS can reach the address.")}`,
       confirmLabel: t("Save anyway"),
       busyLabel: t("Saving…"),
-      // The dialog closes; the card shows the save's progress and result.
-      run: async () => {
-        void persist(revision);
-        return { success: true };
-      },
+      // A refusal stays in this dialog; the key-file dialog can still take over.
+      run: () => runSave(snapshot.revision),
     });
   }
 
-  /** Saves the key, then the endpoint and model edits. A key file with this name asks first. */
-  async function persist(start: string) {
+  /** Runs the confirmed save; the answer keeps the dialog open when the server refuses. */
+  async function runSave(revision: string): Promise<ConfirmResult> {
+    const problem = await persist(revision);
+    // The key-file dialog took over this click; the dialog now open is that one.
+    if (problem === KEY_DIALOG) return { success: false, error: "" };
+    return problem === "" ? { success: true } : { success: false, error: t(problem) };
+  }
+
+  /**
+   * Saves the key, then the endpoint and model edits. Returns the problem, "" on success, or
+   * KEY_DIALOG when the Replace-the-key-file dialog took over. A key file with this name asks
+   * first.
+   */
+  async function persist(start: string): Promise<string> {
     let revision = start;
     setWorking("save");
     if (hasKey) {
@@ -194,13 +228,15 @@ export function ExternalApiSection() {
               }
             },
           });
-          return;
+          return KEY_DIALOG;
         }
         report(false, t(reason));
-        return;
+        return reason;
       }
     }
-    await finish(await saveEdits(revision));
+    const problem = await saveEdits(revision);
+    await finish(problem);
+    return problem;
   }
 
   /** One test call with the form's values, saved or not. A pasted key is used for it only. */

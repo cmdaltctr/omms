@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
 import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import { Input } from "$lib/components/ui/input";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useCardText } from "$lib/i18n/settings-cards";
 import { settingsRequest } from "$lib/settings-api";
@@ -39,8 +41,9 @@ function whole(text: string, min: number, max = Number.MAX_SAFE_INTEGER): number
 /**
  * The capture trace switch, the retention fields, the retry queue and the trace files of the
  * Capture diagnostics card. The switch and the three retention fields save together with one
- * Save button. A change that deletes data asks first: turning the retry queue off (0 hours) names
- * how many turns wait, and turning traces on warns that traces can hold conversation text.
+ * Save button, and every save asks first: a plain change lists what changes, while a change that
+ * deletes data keeps its own dialog: turning the retry queue off (0 hours) names how many turns
+ * wait, and turning traces on warns that traces can hold conversation text.
  */
 export function CaptureControls({
   snapshot,
@@ -59,12 +62,14 @@ export function CaptureControls({
   traces: Trace[];
   /** What the last Retry now did. */
   note: string;
-  onRetry: (host: WebHost) => void;
+  /** Runs Retry now for one host, and reports whether the run started. */
+  onRetry: (host: WebHost) => Promise<{ success: boolean; error?: string }>;
   /** Reload what the card shows after a save or a deleted file. */
   onChanged: () => Promise<void>;
 }) {
   const t = useCardText();
   const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const [trace, setTrace] = useState<boolean>();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -92,6 +97,24 @@ export function CaptureControls({
     if (next !== null && next !== saved(key, key === HOURS_KEY ? 72 : 30)) edits[key] = next;
   }
   const changed = Object.keys(edits).length > 0;
+  const retentionInWords = (hours: boolean, value: unknown) =>
+    value == null
+      ? t("Not set")
+      : hours
+        ? t("{count} hours", { count: String(value) })
+        : t("{count} days", { count: String(value) });
+  const fields = [
+    { key: "captureTrace", label: name("captureTrace") },
+    ...ALL_KEYS.map((key) => ({
+      key,
+      label: name(key),
+      print: (value: unknown) => retentionInWords(key === HOURS_KEY, value),
+    })),
+  ];
+  const inForce: Record<string, unknown> = {
+    captureTrace: settings?.captureTrace?.globalValue === true,
+    ...Object.fromEntries(ALL_KEYS.map((key) => [key, saved(key, key === HOURS_KEY ? 72 : 30)])),
+  };
 
   async function commit() {
     const result = await saveSettingEdits(snapshot!.revision, edits);
@@ -111,10 +134,19 @@ export function CaptureControls({
     const queueOff = edits[HOURS_KEY] === 0;
     const traceOnNow = edits.captureTrace === true;
     if (!queueOff && !traceOnNow) {
-      setBusy(true);
-      const result = await commit();
-      setBusy(false);
-      if (!result.success) setMessage(result.error ?? "");
+      ask({
+        title: t("Save retention?"),
+        body: <SettingsChangeList changes={changes(inForce, edits, fields)} />,
+        confirmLabel: t("Save retention"),
+        busyLabel: t("Saving…"),
+        run: async () => {
+          setBusy(true);
+          const result = await commit();
+          setBusy(false);
+          if (!result.success) setMessage(result.error ?? "");
+          return result;
+        },
+      });
       return;
     }
     let fresh: Record<WebHost, number> | undefined;
@@ -165,6 +197,17 @@ export function CaptureControls({
             )
           : undefined,
       run: commit,
+    });
+  }
+
+  /** Asks first: Retry now sends the waiting turns of one host to the model again. */
+  function retryNow(host: WebHost) {
+    ask({
+      title: t("Retry waiting turns?"),
+      body: <p>{t("The waiting turns will be sent to the model again.")}</p>,
+      confirmLabel: t("Retry now"),
+      busyLabel: t("Retrying…"),
+      run: () => onRetry(host),
     });
   }
 
@@ -293,7 +336,7 @@ export function CaptureControls({
               variant="outline"
               size="sm"
               disabled={count === 0 || retryHours === 0}
-              onClick={() => onRetry(host)}
+              onClick={() => retryNow(host)}
             >
               {t("Retry now")}
             </Button>

@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
+import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import {
   SettingsConfirmDialog,
   type ConfirmResult,
@@ -24,10 +25,17 @@ export type ConfirmRequest = {
  * `dialog` once in the card. The dialog mounts only while a request is pending.
  */
 export function useSettingsConfirm() {
+  const t = useCatalogueText();
   const [pending, setPending] = useState<ConfirmRequest | null>(null);
+  // A failed run keeps values and a revision from the click, which the card may have reloaded.
+  // Confirming again could resend a rejected revision, so the user closes and saves again.
+  const [failed, setFailed] = useState(false);
   const confirmed = useRef(false);
+  const current = useRef<ConfirmRequest | null>(null);
   const ask = (request: ConfirmRequest) => {
     confirmed.current = false;
+    current.current = request;
+    setFailed(false);
     setPending(request);
   };
   const dialog = pending ? (
@@ -36,15 +44,24 @@ export function useSettingsConfirm() {
       body={pending.body}
       confirmLabel={pending.confirmLabel}
       busyLabel={pending.busyLabel}
-      blocked={pending.blocked}
+      blocked={
+        failed
+          ? t("Close this dialog and save again, so it shows the current settings.")
+          : pending.blocked
+      }
       destructive={pending.destructive}
       onConfirm={async () => {
-        const result = await pending.run();
+        const request = pending;
+        const result = await request.run();
         confirmed.current = result.success;
+        // A run that asked a follow-up question (a new request) has not failed.
+        if (!result.success && current.current === request) setFailed(true);
         return result;
       }}
       onClose={() => {
         if (!confirmed.current) pending.onCancel?.();
+        setFailed(false);
+        current.current = null;
         setPending(null);
       }}
     />

@@ -47,11 +47,24 @@ Every card with a server follows the same steps:
 1. Edit the values.
 2. Select **Test**, where the card has one. The test uses the values in the form, saved or not.
 3. Select **Save**. Leaving a field saves nothing.
-4. Read the plain message that follows.
+4. Read the dialog, then select its confirm button.
+5. Read the plain message that follows.
 
 You can clear an optional field, such as the API URL or the model. Saving an empty field removes its key from the file. A URL field accepts only `http://` or `https://` addresses. A number that is not valid shows a message next to the field and keeps **Save** off.
 
-A save that deletes stored data opens a confirmation first. It says what OMMS deletes and how many items, when OMMS knows the count. Nothing is saved until you confirm. The confirmation has **Cancel** as its first choice.
+### Each save asks first
+
+When you select **Save**, a dialog opens before OMMS sends anything. Its title names the card, for example **Save memory basics?**. Its body lists each setting that the save changes, with the saved value struck through and the new value after it. A reset to a default shows **Default (value)** as the new value.
+
+- **Cancel** sends nothing. The text you typed stays in the form, so you can select **Save** again.
+- A setting that saves when you change it, such as **Summary language**, shows your choice while the dialog is open. **Cancel** puts the saved value back.
+- A button that starts or stops a job, such as **Retry now** or **Record past turns**, asks first with one sentence. The sentence says what the job does.
+- A **Save** that changes nothing still asks first. The dialog says that saving writes the current values again.
+- If the save fails, the dialog shows the reason and its confirm button turns off. Close the dialog and select **Save** again, so the dialog shows the current settings.
+- A value that fails a check on the page shows its message on the page, and no dialog opens.
+- A choice that changes only how the page looks, such as the theme and the date format, saves with no dialog.
+
+A save that deletes stored data keeps its own confirmation. It says what OMMS deletes and how many items, when OMMS knows the count. Nothing is saved until you confirm. The confirmation has **Cancel** as its first choice.
 
 ### Key entry
 
@@ -87,7 +100,7 @@ This card holds the only switch that turns on automatic deletion of memories.
 
 The card warns you that deletion removes memories that are not pinned and have not changed for that many days, in every project, and that OMMS cannot restore a deleted memory. A project file cannot change these two settings. OpenCode, Pi and Claude Code follow the same switch.
 
-Turning the switch on, or lowering the number of days while it is on, opens a confirmation first. It states how many memories have not changed for that many days, and that OMMS deletes them at its next daily check, not when you save. OMMS counts them with the same selection the deletion uses and deletes nothing while it counts. The number is what goes: the check deletes old prompts and the memories captured from them in the same run. The confirmation also says that pinned memories and memorisations stay. It has **Cancel** as its first choice. Nothing is saved until you confirm, and **Cancel** puts the switch back to its saved state. When OMMS cannot read the count, the confirmation says so and does not let you turn deletion on. Turning the switch off needs no confirmation.
+Turning the switch on, or lowering the number of days while it is on, opens a confirmation first. It states how many memories have not changed for that many days, and that OMMS deletes them at its next daily check, not when you save. OMMS counts them with the same selection the deletion uses and deletes nothing while it counts. The number is what goes: the check deletes old prompts and the memories captured from them in the same run. The confirmation also says that pinned memories and memorisations stay. It has **Cancel** as its first choice. Nothing is saved until you confirm, and **Cancel** puts the switch back to its saved state. When OMMS cannot read the count, the confirmation says so and does not let you turn deletion on. Turning the switch off, or raising the number of days, opens a dialog that lists the change, although it deletes nothing. **Cancel** puts the switch back to its saved state.
 
 The older `autoCleanupEnabled` key was removed in 7.0.0. OMMS ignores it, so a file that still sets `"autoCleanupEnabled": true` deletes nothing. Only the switch on this card turns deletion on. OMMS does not change your file by itself.
 
@@ -110,7 +123,7 @@ The card sets four values:
 | Model    | `memoryModel`    | The model name at that endpoint, for example `glm-5.3`. Not needed for `orcarouter`.                                                               |
 | API key  | `memoryApiKey`   | Where the key comes from. See the three key sources below.                                                                                         |
 
-Select **Save settings** to save the provider, URL, model and key. **Save settings** first runs the same test as **Test**, once, with the values in the form, and saves only when the test passes. A key the provider refuses (HTTP 401 or 403) is never saved, and the card says nothing was saved. When OMMS cannot reach the address at all (a network error or a timeout), a dialog asks whether to save anyway or cancel. Empty the API URL or the model and save to turn the external API off and remove the key from the file; that save needs no test. The hint under each field says so: an empty field turns the external API off, except for OrcaRouter, which has its own address and picks its own model. The URL must start with `http://` or `https://`.
+Select **Save settings** to save the provider, URL, model and key. **Save settings** first runs the same test as **Test**, once, with the values in the form. A passing test opens a dialog that lists each change. The key shows only as where it is kept, never its value. Nothing is saved until you confirm. A key the provider refuses (HTTP 401 or 403) is never saved, no dialog opens, and the card says nothing was saved. When OMMS cannot reach the address at all (a network error or a timeout), a dialog asks whether to save anyway or cancel. That dialog also lists the changes. Empty the API URL or the model and save to turn the external API off and remove the key from the file; that save needs no test, and its dialog says the external API will be turned off. The hint under each field says so: an empty field turns the external API off, except for OrcaRouter, which has its own address and picks its own model. The URL must start with `http://` or `https://`.
 
 ### Preset
 
@@ -445,7 +458,7 @@ To create a token:
 
 1. Type a **Token name**.
 2. Choose **Expires after**: 7, 30, or 90 days, or **Never**.
-3. Select **Generate token**.
+3. Select **Generate token**, then confirm in the dialog.
 4. Select **Copy**, and keep the token in a safe place.
 
 The page shows the token value once. OMMS keeps only a hash of it, so nobody can show it again.
@@ -458,9 +471,9 @@ The routes are `GET` and `POST /api/settings/tokens`, and `DELETE /api/settings/
 
 The browser password turns on HTTP Basic Auth. The browser then asks for a user name and password before the page opens.
 
-- To set it, type the **Password** and, optionally, the **User name**. Then select **Save password**. The default user name is your computer user name.
+- To set it, type the **Password** and, optionally, the **User name**. Then select **Save password** and confirm in the dialog. The default user name is your computer user name.
 - OMMS writes the password to `~/.config/omms/secrets/web-password.key` with mode `0600`. It saves `webServerAuthPassword: file://...` and `webServerAuthUsername` in the global config.
-- **Clear password** removes both config keys and deletes the password file.
+- **Clear password** asks you to confirm first. It then removes both config keys and deletes the password file.
 - Restart the web app to use a new password. Use the [power button](web-ui.md#power-button).
 
 The route is `POST /api/settings/web-password`. It needs a caller on this machine and the local token file.
@@ -494,7 +507,7 @@ When a live capture fails because the capture model cannot be reached, OMMS keep
 - **Retry retention (hours).** How long a waiting turn is kept. The default is 72 hours. The range is 0 to 720.
 - Set it to 0 to turn the queue off. When you select **Save retention**, OMMS counts the waiting turns again, and a confirmation says how many it deletes. Nothing is saved until you confirm. The save then deletes the waiting turns at once.
 - **Turns waiting for retry** shows the number of waiting turns for Pi, OpenCode, and Claude Code.
-- **Retry now** retries the waiting turns of Pi and Claude Code at once. OpenCode's waiting turns retry at the next OpenCode session start, because only an OpenCode session can call OpenCode's models. The page says so.
+- **Retry now** asks you to confirm first, because it sends the waiting turns to the model again. It then retries the waiting turns of Pi and Claude Code at once. OpenCode's waiting turns retry at the next OpenCode session start, because only an OpenCode session can call OpenCode's models. The page says so.
 - The web app always runs the Claude Code retry pass, so **Retry now** works for Claude Code in any web app.
 - **Retry now** is disabled when the host has no waiting turns or the queue is off.
 - Queued turns can contain conversation content. OMMS removes text inside `<private>` tags and common API key formats first.
@@ -544,7 +557,7 @@ Use this section when Claude Code does not keep its data in `~/.claude`, for exa
 
 Use this card to choose the language that new memory summaries are written in.
 
-- **Summary language** (`autoCaptureLanguage`) is **Automatic** or one language. Choosing a language saves it at once.
+- **Summary language** (`autoCaptureLanguage`) is **Automatic** or one language. When you choose a language, a dialog asks you to confirm the change. **Cancel** keeps the saved language.
 - **Automatic** detects the language of your prompt. Detection is unreliable on short text, so a Latin-script prompt under 100 characters counts as English. Pick a fixed language if your memories come out in a language you do not use.
 - A save applies to the next capture. Memories that exist already keep their language.
 
@@ -625,8 +638,8 @@ See [CLI: Global install](cli.md#global-install-optional) and [Updating and upgr
 
 The card holds the settings of [skill learning](configuration.md#skill-learning). It saves through the same safe flow as the other cards. See [How saving works](#how-saving-works).
 
-- **Record agent turns** (`skillLearning`) switches recording on or off. While it is on, the card shows a warning. It says that OMMS stores full prompts, replies and tool calls in `skills.db` on this computer, that drafting sends recorded turns to the external API, that the file holds whatever the turns hold, and that the memory chat sends skill counts and short change summaries to the external API, never turn text. A project config can turn recording off for its project. It cannot turn it on.
-- **Record past turns** appears while recording is on. It starts one grouped import of all past history with only **Skill turns** ticked. It makes no model call. A progress bar shows the **Skill turns** phase. When the run ends, the card shows the count of turns recorded.
+- **Record agent turns** (`skillLearning`) switches recording on or off. Each change asks you to confirm it in a dialog. While it is on, the card shows a warning. It says that OMMS stores full prompts, replies and tool calls in `skills.db` on this computer, that drafting sends recorded turns to the external API, that the file holds whatever the turns hold, and that the memory chat sends skill counts and short change summaries to the external API, never turn text. A project config can turn recording off for its project. It cannot turn it on.
+- **Record past turns** appears while recording is on. It asks you to confirm first. It then starts one grouped import of all past history with only **Skill turns** ticked. It makes no model call. A progress bar shows the **Skill turns** phase. When the run ends, the card shows the count of turns recorded.
 - **Remove private text and secrets** (`skillLearningRedact`) is on by default. Turning it off needs a confirmation. While it is off, the card shows a danger notice: `<private>` text, API keys and passwords are stored as written and sent to the external API when OMMS drafts.
 - **Recorded turns** and **File size** show the contents of `skills.db`.
 - **Delete recorded turns** asks first. The confirmation states the number of turns. Confirming deletes all of them, and the card then shows 0 turns. Proposals and skill versions stay.

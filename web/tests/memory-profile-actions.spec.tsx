@@ -11,6 +11,8 @@ mock.module("react", () => ({
   useContext: () => null,
   useMemo: (factory: () => unknown) => factory(),
   useSyncExternalStore: (_s: unknown, snapshot: () => unknown) => snapshot(),
+  // The confirm hook keeps its outcome in a ref; the specs drive it outside a renderer.
+  useRef: (initialValue: unknown) => ({ current: initialValue }),
   useEffect: (effect: () => unknown) => effects.push(effect),
   useState: (initial: unknown) => {
     const index = cursor++;
@@ -50,6 +52,8 @@ Object.assign(globalThis, {
 });
 const { ProfileCatchUpSection, CatchUpStatus } =
   await import("../src/lib/components/memory/ProfileCatchUpSection.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 type Node = ReactElement<{ children?: ReactNode; [key: string]: any }>;
 function nodes(node: ReactNode): Node[] {
   if (!react.isValidElement(node)) return Array.isArray(node) ? node.flatMap(nodes) : [];
@@ -78,6 +82,16 @@ async function mount() {
 }
 const button = (name: string) =>
   render().find((node) => node.type === "button" && text(node) === name)!;
+/** The shared confirm dialog a settings action opens, as an element to drive through its props. */
+const dialogOf = () => render().find((node) => node.type === SettingsConfirmDialog);
+/** Starts a run through the start action's own window.confirm, so Pause shows. */
+async function running() {
+  await mount();
+  confirmed = true;
+  button("Analyse waiting prompts").props.onClick();
+  await settle();
+}
+const pauses = () => requests.filter((request) => request.path.endsWith("/pause"));
 beforeEach(() => {
   states = [];
   effects = [];
@@ -118,5 +132,59 @@ it("translates both actions and keeps the waiting prompt state on language chang
     expect(button(analyse)).toBeDefined();
     expect(button(replay)).toBeDefined();
     expect(render().map(text).join(" ")).toContain("2600");
+  }
+});
+it("asks before it pauses the catch-up run, and sends nothing until the user confirms", async () => {
+  await running();
+  button("Pause").props.onClick();
+  await settle();
+  const dialog = dialogOf()!;
+  expect(dialog.props.title).toBe("Pause the catch-up run?");
+  expect(dialog.props.confirmLabel).toBe("Pause");
+  expect(text(dialog.props.body)).toContain("no model calls run until you resume it");
+  expect(pauses()).toHaveLength(0);
+  dialog.props.onClose();
+  await settle();
+  expect(pauses()).toHaveLength(0);
+  expect(dialogOf()).toBeUndefined();
+});
+it("pauses the run after the user confirms", async () => {
+  await running();
+  button("Pause").props.onClick();
+  await settle();
+  const result = await dialogOf()!.props.onConfirm();
+  expect(result).toEqual({ success: true });
+  await settle();
+  expect(pauses()).toHaveLength(1);
+});
+it("keeps a pause refusal inside the dialog, which stays open", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (path: string, options: RequestInit = {}) => {
+    requests.push({ path, method: options.method ?? "GET" });
+    if (String(path).endsWith("/pause"))
+      return new Response(JSON.stringify({ error: "No catch-up run is active" }), { status: 409 });
+    const value =
+      path === "/api/web/status"
+        ? { isLocal: true }
+        : path === "/api/settings/profile/catch-up"
+          ? {
+              preview: { waiting: 2600, calls: 52 },
+              job: { state: "idle", batchesBuilt: 0, remaining: 2600 },
+            }
+          : { state: "running", batchesBuilt: 0, remaining: 2600 };
+    return new Response(JSON.stringify(value));
+  }) as unknown as typeof fetch;
+  try {
+    await running();
+    button("Pause").props.onClick();
+    await settle();
+    const dialog = dialogOf()!;
+    const result = await dialog.props.onConfirm();
+    expect(result).toEqual({ success: false, error: "No catch-up run is active" });
+    await settle();
+    expect(dialogOf()).toBeDefined();
+    expect(render().map(text).join(" ")).toContain("No catch-up run is active");
+  } finally {
+    globalThis.fetch = realFetch;
   }
 });

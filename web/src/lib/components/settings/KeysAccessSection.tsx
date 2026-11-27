@@ -232,16 +232,37 @@ export function KeysAccessSection() {
     }).catch(() => {});
   }
 
-  const generate = (name: string, expiresInDays: number | null) =>
-    act(async () => {
-      const created = await settingsRequest<{ value: string }>("/api/settings/tokens", {
-        method: "POST",
-        body: JSON.stringify({ name, expiresInDays }),
-      });
-      setNewValue(created.value);
-      setMessage("");
-      await loadTokens();
+  const generate = (name: string, expiresInDays: number | null) => {
+    ask({
+      title: t("Generate a token?"),
+      body: (
+        <p>
+          {t("OMMS creates a token that lets scripts and other computers call this web app's API.")}
+        </p>
+      ),
+      confirmLabel: s("Generate token"),
+      busyLabel: t("Saving…"),
+      run: async () => {
+        let failure: string | undefined;
+        // `act` keeps the card's busy flag, message and reload as they were.
+        await act(async () => {
+          try {
+            const created = await settingsRequest<{ value: string }>("/api/settings/tokens", {
+              method: "POST",
+              body: JSON.stringify({ name, expiresInDays }),
+            });
+            setNewValue(created.value);
+            setMessage("");
+            await loadTokens();
+          } catch (error) {
+            failure = (error as Error).message;
+            throw error;
+          }
+        });
+        return failure === undefined ? { success: true } : { success: false, error: failure };
+      },
     });
+  };
 
   function revoke(token: ApiToken) {
     setNewValue(undefined);
@@ -267,25 +288,51 @@ export function KeysAccessSection() {
     });
   }
 
-  const savePassword = (clear: boolean) =>
-    act(async () => {
-      if (!snapshot) return;
-      await settingsRequest("/api/settings/web-password", {
-        method: "POST",
-        body: JSON.stringify(
-          clear
-            ? { clear: true, revision: snapshot.revision }
-            : {
-                password: password.value,
-                username: password.username,
-                revision: snapshot.revision,
-              }
-        ),
-      });
-      // The password leaves the page as soon as it is saved.
-      setPassword({ username: "", value: "" });
-      setMessage(s(passwordStatusMessage(clear)));
+  /** Asks first, with one sentence and no secret. The card's own feedback stays. */
+  const savePassword = (clear: boolean) => {
+    ask({
+      title: t(clear ? "Clear the browser password?" : "Save the browser password?"),
+      body: (
+        <p>
+          {t(
+            clear
+              ? "The browser password is removed. The web app stops asking for it after it restarts."
+              : "The password is stored in a private file on this computer. The web app asks for it after it restarts."
+          )}
+        </p>
+      ),
+      confirmLabel: s(clear ? "Clear password" : "Save password"),
+      busyLabel: t("Saving…"),
+      destructive: clear,
+      run: async () => {
+        let failure: string | undefined;
+        await act(async () => {
+          if (!snapshot) return;
+          try {
+            await settingsRequest("/api/settings/web-password", {
+              method: "POST",
+              body: JSON.stringify(
+                clear
+                  ? { clear: true, revision: snapshot.revision }
+                  : {
+                      password: password.value,
+                      username: password.username,
+                      revision: snapshot.revision,
+                    }
+              ),
+            });
+            // The password leaves the page as soon as it is saved.
+            setPassword({ username: "", value: "" });
+            setMessage(s(passwordStatusMessage(clear)));
+          } catch (error) {
+            failure = (error as Error).message;
+            throw error;
+          }
+        });
+        return failure === undefined ? { success: true } : { success: false, error: failure };
+      },
     });
+  };
 
   const access = snapshot?.access;
   return (
@@ -314,7 +361,7 @@ export function KeysAccessSection() {
               tokens={tokens}
               newValue={newValue}
               busy={busy}
-              onGenerate={(name, days) => void generate(name, days)}
+              onGenerate={(name, days) => generate(name, days)}
               onRevoke={revoke}
             />
           </fieldset>
@@ -333,7 +380,7 @@ export function KeysAccessSection() {
                 type="button"
                 variant="outline"
                 disabled={busy || !snapshot || readOnly || !password.value}
-                onClick={() => void savePassword(false)}
+                onClick={() => savePassword(false)}
               >
                 {s("Save password")}
               </Button>
@@ -341,7 +388,7 @@ export function KeysAccessSection() {
                 type="button"
                 variant="outline"
                 disabled={busy || !snapshot || readOnly || !access?.authEnabled}
-                onClick={() => void savePassword(true)}
+                onClick={() => savePassword(true)}
               >
                 {s("Clear password")}
               </Button>

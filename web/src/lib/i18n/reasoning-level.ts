@@ -51,6 +51,7 @@ export const reasoningLevelText = {
     "احفظ العنوان أولاً. يُطبَّق المستوى على العنوان والمزوّد والنموذج المحفوظة.",
   ],
   "Save reasoning level": ["保存推理级别", "حفظ مستوى الاستدلال"],
+  "Save reasoning level?": ["保存推理级别？", "حفظ مستوى الاستدلال؟"],
   "Saving reasoning level…": ["正在保存推理级别…", "جارٍ حفظ مستوى الاستدلال…"],
   "Reasoning level saved.": ["推理级别已保存。", "تم حفظ مستوى الاستدلال."],
 } as const;

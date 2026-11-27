@@ -1,4 +1,5 @@
 import { History, Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { fill, jobEnded, jobPercent, recordedTurns, countText } from "$lib/skills-model";
@@ -7,15 +8,39 @@ import { useRecordPast } from "./use-record-past";
 
 /** Record past turns: the button, progress while it runs, and the count when it ends. */
 export function RecordPast({ onEnd }: { onEnd: () => void }) {
+  const s = useSettingsText();
+  const { ask, dialog } = useSettingsConfirm();
   const { job, running, starting, error, start } = useRecordPast(onEnd);
+  /** Asks first: the job reads every set-up host's history, so it needs a clear go-ahead. */
+  function askFirst() {
+    ask({
+      title: s("Record past turns?"),
+      body: (
+        <p>
+          {s(
+            "OMMS records skill turns from the past sessions of every set-up host, with no model call."
+          )}
+        </p>
+      ),
+      confirmLabel: s("Record past turns"),
+      busyLabel: s("Finding past sessions…"),
+      run: async () => {
+        // A refused start keeps its reason in the dialog. The card follows the job after a start.
+        return start();
+      },
+    });
+  }
   return (
-    <RecordPastView
-      job={job}
-      running={running}
-      starting={starting}
-      error={error}
-      onStart={() => void start()}
-    />
+    <>
+      <RecordPastView
+        job={job}
+        running={running}
+        starting={starting}
+        error={error}
+        onStart={() => void askFirst()}
+      />
+      {dialog}
+    </>
   );
 }
 

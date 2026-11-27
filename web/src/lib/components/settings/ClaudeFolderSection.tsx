@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { SettingRow } from "./SettingRow";
 import {
   beginSettingsRead,
@@ -22,6 +26,8 @@ type Snapshot = {
 
 export function ClaudeFolderSection() {
   const s = useSettingsText();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState("");
@@ -52,28 +58,51 @@ export function ClaudeFolderSection() {
     };
   }, []);
   const readOnly = snapshot?.readOnly === true;
-  async function save() {
+  /** Asks first, with the folder that will be saved. The card's own feedback stays. */
+  function save() {
     if (!snapshot) return;
     if (!isValidClaudeConfigDir(draft)) {
       setMessage(s("Enter a full path, or a path that starts with ~/."));
       return;
     }
+    const edits = { claudeConfigDir: draft.trim() };
+    const fields = [
+      {
+        key: "claudeConfigDir",
+        label: name("claudeConfigDir"),
+        // An unset folder means the usual one, both before the save and after it is emptied.
+        print: (value: unknown) => (value ? String(value) : s("The usual Claude folder")),
+      },
+    ];
+    const inForce = { claudeConfigDir: snapshot.settings.claudeConfigDir?.globalValue };
+    const rows = changes(inForce, edits, fields);
+    ask({
+      title: s("Save the Claude Code folder?"),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save folder"),
+      busyLabel: s("Saving…"),
+      run: () => saveFolder(edits),
+    });
+  }
+  /** Saves the folder. A refusal keeps the dialog open with its reason. */
+  async function saveFolder(edits: { claudeConfigDir: string }): Promise<ConfirmResult> {
+    if (!snapshot) return { success: false };
     setBusy(true);
+    let failure: string | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({
-          edits: { claudeConfigDir: draft.trim() },
-          revision: snapshot.revision,
-        }),
+        body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
       edited.current = false;
       setMessage(s("Saved. Capture and import use this folder now."));
     } catch (error) {
-      setMessage((error as Error).message);
+      failure = (error as Error).message;
+      setMessage(failure);
     }
     await reloadSettingsSnapshot<Snapshot>();
     setBusy(false);
+    return failure === undefined ? { success: true } : { success: false, error: failure };
   }
   return (
     <section
@@ -100,7 +129,7 @@ export function ClaudeFolderSection() {
           }}
         />
       </SettingRow>
-      <Button type="button" disabled={busy || !snapshot || readOnly} onClick={() => void save()}>
+      <Button type="button" disabled={busy || !snapshot || readOnly} onClick={() => save()}>
         {s("Save folder")}
       </Button>
       <ReadOnlyNote show={readOnly} />
@@ -110,6 +139,7 @@ export function ClaudeFolderSection() {
           {message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

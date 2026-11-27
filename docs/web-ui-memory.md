@@ -14,6 +14,8 @@ Every view starts with the same four cards, including **Shared**, so one click r
 
 Browse stored results on **Project memories** (`/project-memories`) and **User profile** (`/user-profile`). `/` opens Project memories. Settings retains models, access controls, diagnostics and profile identity controls. See [Settings page](web-ui-settings.md).
 
+Every save and every job action on this page asks you to confirm first, as on the Settings page. The dialog lists each setting the save changes, or says in one sentence what the job does. **Cancel** sends nothing. See [Each save asks first](web-ui-settings.md#each-save-asks-first).
+
 ## Welcome panel
 
 A new install has no memories. In that case the **Project memories** page shows a welcome panel in place of the plain "No memories found" line. The panel says that memories appear after your first sessions in OpenCode, Pi or Claude Code, and lists each host with its capture state:
@@ -70,8 +72,8 @@ Each row leads with its plain name and a one-line description, then the default 
 - The first-message option adds memories once, with the first message of a new session, on every host. Claude Code does this on its first prompt, not at its `SessionStart` hook. OMMS searches with the query and adds only matching memories. The **Opening search text** holds up to 500 characters. An empty text runs no search. The text area shows a counter.
 - Subagents get the memories that match their task, and no recall rows. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. On Pi, a subagent gets memories only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in `/omps-settings`, Agent capabilities, Memory.
 - The restore switch adds the memories that the session captured when it resumes or compacts. **Memories added back after a summary** takes a positive whole number.
-- **Save** writes only the changed keys to the global file, through the [safe global save](web-ui-settings.md#how-saving-works). A rejected value shows a message that names the key and the rule.
-- **Reset to default** returns the form to the defaults. Select **Save** after it. The save removes the five keys from the file, so each value follows its default again.
+- **Save** lists each change in a dialog first. After you confirm, it writes only the changed keys to the global file, through the [safe global save](web-ui-settings.md#how-saving-works). A rejected value shows a message that names the key and the rule.
+- **Reset to default** returns the form to the defaults and opens no dialog. Select **Save** after it. The dialog lists each key the save removes, with its default. The save removes the five keys from the file, so each value follows its default again.
 - A project config can turn the first-message and subagent options off, never on. It can turn the restore on or off. See [Configuration: Memory injection](configuration.md#memory-injection).
 
 ## A host view
@@ -283,11 +285,11 @@ Ignored folders leave unresolved counts without importing their sessions. Histor
 
 Automatic import, or backfill, reads older conversations in the background and populates project memories and user profile input. It makes model calls. It starts about 30 seconds after Pi or OpenCode starts. Claude Code starts it after the first session start that reaches the web app.
 
-**Import past chats automatically** keeps the existing global `autoBackfill` switch. Ticking it opens the same question as **Turn on**, and only the dialog's **Turn on** saves. Turning it off saves at once and stops a running backfill after its current exchange. The first backfill fixes each host's cutoff; later starts resume pending work with that cutoff and ledger. Live capture handles newer turns. A model change applies at the next run.
+**Import past chats automatically** keeps the existing global `autoBackfill` switch. Turning it on opens the same question as **Turn on**, and only the dialog's **Turn on** saves. Turning it off asks you to confirm in a dialog, and **Cancel** leaves the switch on. Confirming stops a running backfill after its current exchange. The first backfill fixes each host's cutoff; later starts resume pending work with that cutoff and ledger. Live capture handles newer turns. A model change applies at the next run.
 
 Each host's view holds its own automatic-import controls: the status header, the run facts below it, and the host's settings. The overview card shows the state in one line. Unsaved model choices stay while counts refresh.
 
-The Pi and OpenCode **Backfill model** choices remain:
+The Pi and OpenCode **Backfill model** choices remain. **Save model** lists the change in a dialog before it saves:
 
 - **Same as live capture:** saves `inherit` to `piBackfillModel` or `opencodeBackfillModel`.
 - **External API:** saves `external` and can run with no host open.
@@ -301,6 +303,7 @@ Counts refresh every three seconds during a run. Operational progress leaves alr
 
 ### Pause and Resume
 
+- **Pause**, **Resume** and **Retry** each ask you to confirm first, with one sentence on what they do. **Resume** and **Retry** make model calls. **Use external API** asks first too, and then sets the host's backfill model to the external API.
 - **Pause** stops after the current exchange, including a run in another process. With no run going, it saves the pause so no automatic run starts. The pause survives host restarts.
 - **Resume** clears the pause and starts the host's backfill from the ledger, with its existing cutoff, maps and model rule.
 
@@ -415,7 +418,7 @@ Saving edits only the keys in the table. Comments and unrelated keys retain thei
 
 ### Reset to default
 
-Every row has a **Reset to default** button. Selecting it removes that key from the global file through the same safe save flow, so the value follows the default again. Reset never writes a project file. A row whose key is absent from the file has its Reset button disabled.
+Every row has a **Reset to default** button. Selecting it opens a dialog with the saved value and the default. Confirming removes that key from the global file through the same safe save flow, so the value follows the default again. Reset never writes a project file. A row whose key is absent from the file has its Reset button disabled.
 
 A row whose saved value differs from its default shows a **Differs from default** marker. This is how a file that still holds the old template's `"similarityThreshold": 0.6` becomes visible: with the `qwen3-embedding:0.6b` embedder the row shows the marker, and Reset removes the line so the default 0.5 applies again. A value equal to the default, or no saved value, shows no marker.
 
@@ -473,11 +476,11 @@ See [Configuration: Reranker](configuration.md#reranker) for the endpoint contra
 A directory map links a recorded project folder to its current folder, for example after moving a repository or deleting a worktree. Saved maps apply globally to every host at the next import or backfill run.
 
 - **Saved maps** starts collapsed and shows the `importPathMaps` count. Maps are grouped by target folder, largest group first. Each target group is collapsed.
-- **Remove** marks a saved map for removal; **Keep** undoes it. **Save removals** saves pending removals.
+- **Remove** marks a saved map for removal; **Keep** undoes it. **Save removals** shows how many saved maps remain, and saves after you confirm.
 - Keep maps after importing their sessions. Resolution happens before ledger checks. Removing a needed map makes its sessions unresolved again. Previously stored memories remain.
-- **Ignored directories** lists `importIgnoredDirectories`. **Restore** immediately saves removal from that list. The folder returns to each host list that reported it.
+- **Ignored directories** lists `importIgnoredDirectories`. **Restore** names the folder in a dialog, and saves its removal from that list after you confirm. The folder returns to each host list that reported it.
 - Each host view lists its **Unresolved directories** open, with a folder field on every row. Its summary counts directories, unresolved sessions and rows with targets. Collapsing keeps unsaved targets. **Shared** keeps **Saved maps** and **Ignored directories**.
-- **Ignore** immediately saves the folder to `importIgnoredDirectories`. Its sessions leave unresolved counts and stay unimported. Maps, ledger and history files remain unchanged.
+- **Ignore** names the folder in a dialog, and saves it to `importIgnoredDirectories` after you confirm. Its sessions leave unresolved counts and stay unimported. Maps, ledger and history files remain unchanged.
 - **Ignore all** lists every directory it will ignore, with session counts, and saves them in one global save after you confirm. Cancel saves nothing. It never covers **No directory recorded**.
 - Sessions with **No directory recorded** cannot be mapped or ignored.
 

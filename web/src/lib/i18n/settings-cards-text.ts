@@ -17,6 +17,8 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
     "请填写 1 或更大的整数。",
     "استخدم عدداً صحيحاً يساوي 1 أو أكثر.",
   ],
+  "{count} days": ["{count} 天", "{count} يوم"],
+  "{count} hours": ["{count} 小时", "{count} ساعة"],
   // Memory basics.
   "Memory basics": ["记忆基础", "أساسيات الذاكرة"],
   "The main switches for saving and recalling memories. They apply to OpenCode, Pi and Claude Code.":
@@ -27,6 +29,7 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
   "This project": ["本项目", "هذا المشروع"],
   "All projects": ["所有项目", "كل المشاريع"],
   "Save memory basics": ["保存记忆基础设置", "حفظ أساسيات الذاكرة"],
+  "Save memory basics?": ["保存记忆基础设置？", "حفظ أساسيات الذاكرة؟"],
   // Memory cleanup.
   "Memory cleanup": ["记忆清理", "تنظيف الذاكرة"],
   "Turning this on deletes memories. It removes memories that are not pinned and have not changed for the number of days below, in every project. A deleted memory cannot be restored. OpenCode, Pi and Claude Code all follow this switch.":
@@ -43,6 +46,8 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
   "Delete memories sooner": ["提前删除记忆", "حذف الذكريات أبكر"],
   "Turn on automatic deletion?": ["开启自动删除？", "تفعيل الحذف التلقائي؟"],
   "Delete memories after fewer days?": ["缩短天数后删除记忆？", "حذف الذكريات بعد أيام أقل؟"],
+  "Turn off memory cleanup?": ["关闭记忆清理？", "إيقاف تنظيف الذاكرة؟"],
+  "Save memory cleanup?": ["保存记忆清理设置？", "حفظ إعدادات تنظيف الذاكرة؟"],
   "1 memory has not changed for {days} days. OMMS deletes it at its next daily check.": [
     "有 1 条记忆已 {days} 天没有变化。OMMS 会在下一次每日检查时删除它。",
     "هناك ذكرى واحدة لم تتغير منذ {days} يوماً. يحذفها OMMS في فحصه اليومي التالي.",
@@ -141,6 +146,8 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
     "هل تحفظ هذه الإعدادات على أي حال؟ سيفشل الالتقاط إلى أن يتمكن OMMS من الوصول إلى العنوان.",
   ],
   "Save anyway": ["仍然保存", "احفظ على أي حال"],
+  "Save external API settings?": ["保存外部 API 设置？", "حفظ إعدادات واجهة API الخارجية؟"],
+  "The external API will be turned off.": ["外部 API 将被关闭。", "سيتم إيقاف واجهة API الخارجية."],
   // Models.
   "When OpenCode or Pi has no model of its own, OMMS uses the external API model {model}.": [
     "当 OpenCode 或 Pi 没有自己的模型时，OMMS 使用外部 API 模型 {model}。",
@@ -153,6 +160,7 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
     ],
   "Save key": ["保存密钥", "حفظ المفتاح"],
   // Web app.
+  "Save web app settings?": ["保存网页应用设置？", "حفظ إعدادات تطبيق الويب؟"],
   "OpenCode and Pi start the web app for you. With Claude Code alone, start it yourself with the first command below, or install the login item.":
     [
       "OpenCode 和 Pi 会替你启动网页应用。只使用 Claude Code 时，请用下面第一条命令自己启动，或安装登录启动项。",
@@ -170,8 +178,20 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
   "Replace the saved key": ["替换已保存的密钥", "استبدال المفتاح المحفوظ"],
   "Re-embed": ["重新嵌入", "إعادة التضمين"],
   "Re-embedding…": ["正在重新嵌入…", "جارٍ إعادة التضمين…"],
+  "Retry the re-embed?": ["重试重新嵌入？", "إعادة محاولة إعادة التضمين؟"],
+  "The re-embed will run again and send every stored memory to the embedding model.": [
+    "重新嵌入会再次运行，并把每条已存储的记忆发送到嵌入模型。",
+    "ستُشغَّل إعادة التضمين مرة أخرى، وتُرسَل كل ذكرى مخزنة إلى نموذج التضمين.",
+  ],
   // Capture diagnostics.
   "Save retention": ["保存保留设置", "حفظ إعدادات الاحتفاظ"],
+  "Save retention?": ["保存保留设置？", "حفظ إعدادات الاحتفاظ؟"],
+  "Retry waiting turns?": ["重试等待中的回合？", "إعادة محاولة الأدوار المنتظرة؟"],
+  "The waiting turns will be sent to the model again.": [
+    "等待中的回合会再次发送给模型。",
+    "ستُرسَل الأدوار المنتظرة إلى النموذج مرة أخرى.",
+  ],
+  "Retrying…": ["正在重试…", "جارٍ إعادة المحاولة…"],
   "Use a whole number of days, 1 or more.": [
     "请填写天数，1 或更大的整数。",
     "استخدم عدداً صحيحاً من الأيام، 1 أو أكثر.",
@@ -206,6 +226,22 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
   "Scripts that use it stop working.": [
     "使用它的脚本会停止工作。",
     "ستتوقف السكربتات التي تستخدمه.",
+  ],
+  "Save the browser password?": ["保存浏览器密码？", "حفظ كلمة مرور المتصفح؟"],
+  "The password is stored in a private file on this computer. The web app asks for it after it restarts.":
+    [
+      "密码存储在这台电脑上的一个私有文件中。网页应用重启后会要求输入它。",
+      "تُخزَّن كلمة المرور في ملف خاص على هذا الحاسوب. يطلبها تطبيق الويب بعد إعادة تشغيله.",
+    ],
+  "Clear the browser password?": ["清除浏览器密码？", "مسح كلمة مرور المتصفح؟"],
+  "The browser password is removed. The web app stops asking for it after it restarts.": [
+    "浏览器密码会被移除。网页应用重启后不再要求输入。",
+    "تُزال كلمة مرور المتصفح. يتوقف تطبيق الويب عن طلبها بعد إعادة تشغيله.",
+  ],
+  "Generate a token?": ["生成令牌？", "إنشاء رمز؟"],
+  "OMMS creates a token that lets scripts and other computers call this web app's API.": [
+    "OMMS 会创建一个令牌，让脚本和其他计算机调用此网页应用的 API。",
+    "ينشئ OMMS رمزاً يتيح للسكربتات والحاسوبات الأخرى استدعاء واجهة API لتطبيق الويب هذا.",
   ],
   "Use this profile for every folder?": [
     "在所有文件夹中使用此画像？",

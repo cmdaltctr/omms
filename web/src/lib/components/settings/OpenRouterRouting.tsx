@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import { Input } from "$lib/components/ui/input";
@@ -62,6 +66,8 @@ export function OpenRouterRouting({
   readOnly?: boolean;
 }) {
   const s = useSettingsText();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes } = useSettingsChanges();
   const [state, setState] = useState<RoutingState>(() => routingFromProvider(saved));
   const [debounced, setDebounced] = useState(model.trim());
   const [list, setList] = useState<ListState>({ kind: model.trim() ? "loading" : "idle" });
@@ -153,9 +159,55 @@ export function OpenRouterRouting({
     toggle(slug, true);
   }
 
-  async function saveRouting() {
+  /**
+   * Asks first, with each routing choice the save changes. The left side is what the file holds.
+   * The right side is what the request sends: while OpenRouter chooses, the list is not sent, so
+   * the order and Only rows read as off rather than as the ticks still on the page.
+   */
+  function saveRouting() {
+    const initial = routingFromProvider(saved);
+    const asSaved = {
+      data_collection: initial.dataCollection,
+      zdr: initial.zdr,
+      chooses: initial.openRouterChooses,
+      order: initial.openRouterChooses ? [] : initial.ticked,
+      only: initial.openRouterChooses ? false : initial.only,
+    };
+    const sentOrder = state.openRouterChooses ? [] : usableTicked(state, loaded);
+    // The request sends Only just when a usable provider is ticked, as providerFromRouting does.
+    const asSent = {
+      data_collection: state.dataCollection,
+      zdr: state.zdr,
+      chooses: state.openRouterChooses,
+      order: sentOrder,
+      only: sentOrder.length > 0 && state.only,
+    };
+    const fields = [
+      { key: "data_collection", label: s("Block providers that may train on or store data") },
+      { key: "zdr", label: s("Zero data retention only") },
+      { key: "chooses", label: s("Let OpenRouter choose the provider") },
+      {
+        key: "order",
+        label: s("Providers for this model in try order"),
+        print: (value: unknown) =>
+          Array.isArray(value) && value.length > 0 ? value.join(", ") : s("None"),
+      },
+      { key: "only", label: s("Use only these providers") },
+    ];
+    const rows = changes(asSaved, asSent, fields);
+    ask({
+      title: s("Save OpenRouter routing?"),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save routing"),
+      busyLabel: s("Saving routing…"),
+      run: sendRouting,
+    });
+  }
+  /** Saves the routing. A refusal keeps the dialog open with its reason. */
+  async function sendRouting(): Promise<ConfirmResult> {
     setSave({ kind: "saving" });
     const sent = edits.current;
+    let failure: string | undefined;
     try {
       await settingsRequest(SAVE_PATH, {
         method: "POST",
@@ -166,13 +218,18 @@ export function OpenRouterRouting({
           ...(state.openRouterChooses ? { chooses: true } : {}),
         }),
       });
+    } catch (error) {
+      failure = (error as Error).message;
+    }
+    if (failure === undefined) {
       setSave({ kind: edits.current === sent ? "saved" : "idle" });
       setOrderTicks(usableTicked(state, loaded));
       setScrollKey((key) => key + 1);
-    } catch (error) {
-      setSave({ kind: "error", message: (error as Error).message });
+    } else {
+      setSave({ kind: "error", message: failure });
     }
     await reloadSettingsSnapshot();
+    return failure === undefined ? { success: true } : { success: false, error: failure };
   }
 
   const canOnly = usableTicked(state, loaded).length > 0;
@@ -212,7 +269,7 @@ export function OpenRouterRouting({
     <Button
       disabled={save.kind === "saving" || readOnly || blockReason !== undefined}
       aria-describedby={blockReason === undefined ? undefined : "openrouter-save-reason"}
-      onClick={() => void saveRouting()}
+      onClick={() => saveRouting()}
     >
       {s("Save routing")}
     </Button>
@@ -372,6 +429,7 @@ export function OpenRouterRouting({
           {save.message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

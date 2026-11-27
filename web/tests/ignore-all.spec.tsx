@@ -74,6 +74,8 @@ const { DirectoryMapsSection } =
   await import("../src/lib/components/memory/DirectoryMapsSection.tsx");
 const { DirectoryMapHost } = await import("../src/lib/components/settings/DirectoryMapHost.tsx");
 const { IgnoreAllDialog } = await import("../src/lib/components/settings/IgnoreAllDialog.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 
 type Node = ReactElement<{ children?: ReactNode; [key: string]: any }>;
 function nodes(node: ReactNode): Node[] {
@@ -92,6 +94,14 @@ async function settle() {
 }
 const host = (tree: Node[]) => tree.find((node) => node.type === DirectoryMapHost)!;
 const dialog = (tree: Node[]) => tree.find((node) => node.type === IgnoreAllDialog);
+/** The shared confirm dialog a single Ignore opens; confirm it as the user would. */
+async function agree() {
+  const confirm = render().find((node) => node.type === SettingsConfirmDialog)!;
+  const result = await (confirm.props.onConfirm as () => Promise<{ success: boolean }>)();
+  if (result.success) (confirm.props.onClose as () => void)();
+  await settle();
+  return result;
+}
 
 async function open() {
   render();
@@ -180,7 +190,7 @@ it("drops a single ignored directory from the list once saved", async () => {
   const tree = render();
   const row = host(tree).props.rows[0];
   host(tree).props.onIgnore(row);
-  await settle();
+  expect(await agree()).toEqual({ success: true });
   await settle();
   expect(rowPaths(render())).not.toContain(row.directory);
 });
@@ -193,7 +203,7 @@ it("keeps the dialog open and says why when the save fails", async () => {
   await settle();
   const after = render();
   expect(dialog(after)).toBeDefined();
-  expect(texts(after)).toContain("The directories could not be ignored. Try again.");
+  expect(texts(after)).toContain("The directories could not be ignored. Try again. stale");
 });
 
 it("says so, and keeps the dialog open, when the list is not ready to save", async () => {

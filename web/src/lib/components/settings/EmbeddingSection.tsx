@@ -254,17 +254,32 @@ export function EmbeddingSection() {
     });
   }
 
-  async function retry() {
-    try {
-      setRun(
-        await settingsRequest<EmbeddingRun>("/api/settings/embedding/run", {
-          method: "POST",
-          body: "{}",
-        })
-      );
-    } catch (error) {
-      report(false, (error as Error).message);
-    }
+  /** Asks first: a retry re-embeds every stored memory, which calls the embedding model again. */
+  function retry() {
+    ask({
+      title: s("Retry the re-embed?"),
+      body: (
+        <p>
+          {s("The re-embed will run again and send every stored memory to the embedding model.")}
+        </p>
+      ),
+      confirmLabel: s("Retry"),
+      busyLabel: s("Re-embedding…"),
+      run: async () => {
+        try {
+          setRun(
+            await settingsRequest<EmbeddingRun>("/api/settings/embedding/run", {
+              method: "POST",
+              body: "{}",
+            })
+          );
+          return { success: true };
+        } catch (error) {
+          report(false, (error as Error).message);
+          return { success: false, error: (error as Error).message };
+        }
+      },
+    });
   }
 
   const saved = snapshot?.secrets.embeddingApiKey;
@@ -419,7 +434,7 @@ export function EmbeddingSection() {
           ) : null}
         </div>
       )}
-      <EmbeddingRunStatus run={run} onRetry={() => void retry()} />
+      <EmbeddingRunStatus run={run} onRetry={retry} />
       {message && (
         <p role={failed ? "alert" : "status"} className="text-sm">
           {message}

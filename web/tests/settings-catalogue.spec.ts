@@ -109,6 +109,8 @@ it("has every text that the shared pieces show in Chinese and Arabic", () => {
     "web/src/lib/components/settings/SettingsConfirmDialog.tsx",
     "web/src/lib/components/settings/SettingsSearch.tsx",
     "web/src/lib/components/settings/ConfigProblemBanner.tsx",
+    "web/src/lib/components/settings/SettingsChangeList.tsx",
+    "web/src/hooks/useSettingsChanges.ts",
   ];
   const missing: string[] = [];
   for (const file of files) {

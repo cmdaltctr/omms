@@ -226,6 +226,17 @@ const buttonNamed = (tree: Node[], label: string) =>
   byType(tree, Button).find((node) => text(node.props.children).trim() === label)!;
 const tick = (tree: Node[], slug: string, checked = true) =>
   (box(tree, `openrouter-provider-${slug}`).props.onCheckedChange as (v: boolean) => void)(checked);
+const dialogOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+/** What the dialog lists: one row per setting the save changes. */
+const rowsOf = (dialog: Node) => dialog.props.body.props.changes as unknown[];
+const posts = () => requests.filter((request) => request.path === SAVE);
+/** Confirm the open dialog, then let it close as it does when the request succeeds. */
+async function confirm(tree: Node[]) {
+  const dialog = dialogOf(tree)!;
+  const result = await dialog.props.onConfirm();
+  dialog.props.onClose();
+  return result;
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -408,7 +419,7 @@ it("shows the try order, adds a provider by hand and rejects a bad or repeated s
   expect(box(tree, "openrouter-provider-my-host").props.checked).toBe(true);
 });
 
-it("saves the choice with the snapshot revision, answers at once, and reloads the settings", async () => {
+it("asks before it saves the routing, and sends the same request once the user confirms", async () => {
   const pending = deferred<{ status?: number; body: unknown }>();
   requests = installFetch((request) => {
     if (request.path.startsWith(LIST)) return { body: { ok: true, providers: rows } };
@@ -425,6 +436,28 @@ it("saves the choice with the snapshot revision, answers at once, and reloads th
 
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
+  const dialog = dialogOf(tree)!;
+  expect(dialog.props.title).toBe("Save OpenRouter routing?");
+  expect(dialog.props.confirmLabel).toBe("Save routing");
+  expect(rowsOf(dialog)).toEqual([
+    {
+      key: "data_collection",
+      label: "Block providers that may train on or store data",
+      from: "Off",
+      to: "On",
+    },
+    {
+      key: "order",
+      label: "Providers for this model in try order",
+      from: "None",
+      to: "deepinfra, novita",
+    },
+    { key: "only", label: "Use only these providers", from: "Off", to: "On" },
+  ]);
+  expect(posts()).toHaveLength(0);
+
+  const saving = dialog.props.onConfirm() as Promise<unknown>;
+  tree = await settle(block(), own);
   expect(statusLines(tree).join(" ")).toContain("Saving routing");
   const post = requests.find((request) => request.path === SAVE)!;
   expect(post.method).toBe("POST");
@@ -439,9 +472,74 @@ it("saves the choice with the snapshot revision, answers at once, and reloads th
   });
 
   pending.resolve({ body: { revision: "rev-10", provider: {} } });
+  await saving;
   tree = await settle(block(), own);
   expect(statusLines(tree).join(" ")).toContain("Routing saved.");
   expect(requests.some((request) => request.path === "/api/settings")).toBe(true);
+});
+
+it("opens the dialog with an empty change list when no routing choice changed, and saves only on confirm", async () => {
+  requests = installFetch((request) => {
+    if (request.path.startsWith(LIST)) return { body: { ok: true, providers: rows } };
+    if (request.path === SAVE) return { body: { revision: "rev-10", provider: {} } };
+    return { body: { revision: "rev-10", settings: {} } };
+  });
+  let tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+
+  // Save routing stays on when nothing changed. The dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
+  tree = await settle(block(), own);
+  expect(posts()).toHaveLength(1);
+  expect(posts()[0]!.body).toMatchObject({ revision: "rev-9" });
+  expect(posts()[0]!.body.routing).toBeDefined();
+  expect(statusLines(tree).join(" ")).toContain("Routing saved.");
+});
+
+it("lists a saved provider that the save leaves out, because the list shows what is saved", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  // With ZDR on, `together` (may keep data) shows unticked, and a save leaves it out of the order.
+  const saved = { zdr: true, order: ["together", "deepinfra"] };
+  let tree = await settle(block({ saved }), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block({ saved }), own);
+
+  const dialog = dialogOf(tree)!;
+  expect(rowsOf(dialog)).toEqual([
+    {
+      key: "order",
+      label: "Providers for this model in try order",
+      from: "together, deepinfra",
+      to: "deepinfra",
+    },
+  ]);
+  expect(posts()).toHaveLength(0);
+});
+
+it("sends nothing on Cancel, and the ticks stay as they were", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST) ? { body: { ok: true, providers: rows } } : { body: {} }
+  );
+  let tree = await settle(block(), own);
+  tick(tree, "deepinfra");
+  tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  dialogOf(tree)!.props.onClose();
+  tree = await settle(block(), own);
+
+  expect(dialogOf(tree)).toBeUndefined();
+  expect(posts()).toHaveLength(0);
+  expect(box(tree, "openrouter-provider-deepinfra").props.checked).toBe(true);
+  expect(statusLines(tree).join(" ")).not.toContain("Routing saved.");
 });
 
 it("shows the server error when the save fails and keeps the ticks", async () => {
@@ -456,6 +554,11 @@ it("shows the server error when the save fails and keeps the ticks", async () =>
   tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
+  const result = await dialogOf(tree)!.props.onConfirm();
+  expect(result).toEqual({ success: false, error: "Settings changed elsewhere" });
+  tree = await settle(block(), own);
+  // The reason sits in the dialog, which stays open, and on the card.
+  expect(dialogOf(tree)).toBeDefined();
   const alerts = tree
     .filter((node) => node.props.role === "alert")
     .map((n) => text(n.props.children));
@@ -724,6 +827,8 @@ it("clears Routing saved. as soon as any routing control changes", async () => {
   let tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
+  await confirm(tree);
+  tree = await settle(block(), own);
   expect(statusLines(tree).join(" ")).toContain("Routing saved.");
 
   const edits: Array<(tree: Node[]) => void> = [
@@ -736,6 +841,8 @@ it("clears Routing saved. as soon as any routing control changes", async () => {
     resetRender();
     tree = await settle(block(), own);
     (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+    tree = await settle(block(), own);
+    await confirm(tree);
     tree = await settle(block(), own);
     expect(statusLines(tree).join(" ")).toContain("Routing saved.");
     edit(tree);
@@ -770,6 +877,8 @@ it("clears Routing saved. when Use only these providers changes", async () => {
   );
   let tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
+  await confirm(tree);
   tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
   expect(statusLines(tree).join(" ")).toContain("Routing saved.");
   (box(tree, "openrouter-only").props.onCheckedChange as (v: boolean) => void)(true);
@@ -856,6 +965,9 @@ it("has Chinese and Arabic text for Preset, Custom and every new string", () => 
     "Custom",
     SAVE_REASON,
     STALE,
+    "Save OpenRouter routing?",
+    "Providers for this model in try order",
+    "None",
     "Remove OpenRouter routing",
     "Remove OpenRouter routing?",
     "Requests to this endpoint will no longer carry the routing choices.",
@@ -1071,6 +1183,8 @@ it("saves no order, only or allow_fallbacks with the switch on, and keeps the pr
   flip(tree, "openrouter-chooses", true);
   tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  await confirm(tree);
   await settle(block(), own);
   expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
     revision: "rev-9",
@@ -1089,6 +1203,8 @@ it("keeps the choice across a save and a reload when both privacy switches are o
   flip(tree, "openrouter-chooses", true);
   tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  await confirm(tree);
   await settle(block(), own);
   const post = requests.find((request) => request.path === SAVE)!.body as Record<string, unknown>;
   // The routing is empty, so the page must also say that OpenRouter chooses.
@@ -1119,6 +1235,8 @@ it("sends no chooses field while the switch is off", async () => {
   tick(tree, "deepinfra");
   tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  await confirm(tree);
   await settle(block(), own);
   expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
     revision: "rev-9",
@@ -1178,6 +1296,8 @@ it("orders rows by the ticks that show, so a blocked saved tick does not lead", 
   // Saving drops the blocked tick from the order too, so the rows stay put.
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block({ saved }), own);
+  await confirm(tree);
+  tree = await settle(block({ saved }), own);
   expect(slugsOf(tree)).toEqual(["deepinfra", "novita", "together"]);
 });
 
@@ -1196,6 +1316,8 @@ it("does not move a row on a tick, and reorders after a save", async () => {
   expect(position.props["data-position"]).toBe(1);
 
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  await confirm(tree);
   tree = await settle(block(), own);
   expect(slugsOf(tree)).toEqual(["together", "deepinfra", "novita"]);
 });

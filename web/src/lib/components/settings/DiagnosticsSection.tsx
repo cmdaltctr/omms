@@ -115,6 +115,7 @@ export function DiagnosticsSection() {
     void refresh(days, host);
   }, [days, host, refresh]);
   useEffect(() => onSettingsSnapshot((value) => setSnapshot(value as Snapshot)), []);
+  /** Runs Retry now for one host. The confirm dialog in the capture controls calls this. */
   async function retryNow(retryHost: RetryHost) {
     try {
       const { result } = await settingsRequest<{ result: "started" | "scheduled" | "running" }>(
@@ -133,8 +134,10 @@ export function DiagnosticsSection() {
             : s("Retrying now.")
       );
       await refresh(days, host);
+      return { success: true };
     } catch (cause) {
       setError((cause as Error).message);
+      return { success: false, error: (cause as Error).message };
     }
   }
   return (
@@ -341,7 +344,7 @@ export function DiagnosticsSection() {
         }
         traces={traces}
         note={retryNote}
-        onRetry={(retryHost) => void retryNow(retryHost)}
+        onRetry={retryNow}
         onChanged={async () => {
           // A saved retention change can empty the queue, so an earlier Retry now note is stale.
           setRetryNote("");

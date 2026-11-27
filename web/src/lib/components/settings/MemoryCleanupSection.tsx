@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
 import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
 import { Callout } from "$lib/components/skills/Callout";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import { Input } from "$lib/components/ui/input";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
 import { useCardText } from "$lib/i18n/settings-cards";
 import { settingsRequest } from "$lib/settings-api";
 import { saveSettingEdits } from "$lib/settings-save";
@@ -32,14 +34,15 @@ function parseDays(text: string): number | null {
 
 /**
  * The only place a user turns automatic deletion on. The switch writes `autoDeleteOldMemories`.
- * Turning it on, or lowering the days while it is on,
- * first shows how many memories the deletion would remove now. When that count cannot be read,
- * the dialog refuses the save.
+ * Every save asks first. Turning it on, or lowering the days while it is on, first shows how many
+ * memories the deletion would remove now; when that count cannot be read, the dialog refuses the
+ * save. Turning it off or raising the days lists the change instead, because it deletes nothing.
  */
 export function MemoryCleanupSection() {
   const t = useCardText();
   const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
   const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const [on, setOn] = useState<boolean>();
   const [daysText, setDaysText] = useState<string>();
   const [message, setMessage] = useState("");
@@ -65,6 +68,13 @@ export function MemoryCleanupSection() {
   if (changed && daysRejected && days !== null) edits[DAYS] = days;
   // Deletion that reaches more memories than the saved setting does needs a count first.
   const needsCount = nextOn && days !== null && (!savedOn || days < savedDays);
+  const daysInWords = (value: unknown) =>
+    value == null ? t("Not set") : t("{count} days", { count: String(value) });
+  const fields = [
+    { key: SWITCH, label: name(SWITCH) },
+    { key: DAYS, label: name(DAYS), print: daysInWords },
+  ];
+  const inForce = { [SWITCH]: savedOn, [DAYS]: savedDays };
 
   async function commit(): Promise<{ success: boolean; error?: string }> {
     const result = await saveSettingEdits(snapshot!.revision, edits);
@@ -81,10 +91,23 @@ export function MemoryCleanupSection() {
     if (!snapshot || !changed || days === null) return;
     setMessage("");
     if (!needsCount) {
-      setBusy(true);
-      const result = await commit();
-      setBusy(false);
-      if (!result.success) setMessage(result.error ?? "");
+      ask({
+        // Only a switch that goes from on to off turns cleanup off. A days change while it is
+        // off, or a raise while it is on, is an ordinary save.
+        title: t(savedOn && !nextOn ? "Turn off memory cleanup?" : "Save memory cleanup?"),
+        body: <SettingsChangeList changes={changes(inForce, edits, fields)} />,
+        confirmLabel: t("Save"),
+        busyLabel: t("Saving…"),
+        // Cancel puts the switch back to its saved state, so nobody thinks a change is in force.
+        onCancel: () => setOn(undefined),
+        run: async () => {
+          setBusy(true);
+          const result = await commit();
+          setBusy(false);
+          if (!result.success) setMessage(result.error ?? "");
+          return result;
+        },
+      });
       return;
     }
     setBusy(true);

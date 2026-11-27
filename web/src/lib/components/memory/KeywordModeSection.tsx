@@ -6,9 +6,13 @@ import {
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { Button } from "$lib/components/ui/button";
 import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Select } from "$lib/components/ui/select";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { useSettingsText } from "$lib/i18n/settings";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import { PLAIN_TEXT } from "$lib/settings-catalogue";
@@ -35,6 +39,8 @@ export function KeywordModeSection() {
   const [mode, setMode] = useState<KeywordMode>("boost");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status>();
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const saving = useRef(false);
   const latest = useRef<Snapshot | undefined>(undefined);
   useEffect(() => {
@@ -75,25 +81,46 @@ export function KeywordModeSection() {
   const reranker = snapshot ? rerankerOverridesMode(snapshot.settings) : false;
 
   const readOnly = snapshot?.readOnly === true;
-  async function save() {
+  // The same words the dropdown shows, in the language of the page.
+  const modeName = (value: unknown) => {
+    const label = KEYWORD_MODE_OPTIONS.find((option) => option.value === value)?.label;
+    return label ? t(label) : String(value);
+  };
+  const fields = [{ key: "keywordMode", label: name("keywordMode"), print: modeName }];
+  /** Asks first; the choice stays in the dropdown until the dialog closes. */
+  function save() {
     if (!snapshot || saving.current) return;
+    const edits = keywordModeSaveEdits(mode);
+    ask({
+      title: s("Save keyword matching?"),
+      body: <SettingsChangeList changes={changes({ keywordMode: saved }, edits, fields)} />,
+      confirmLabel: s("Save"),
+      busyLabel: s("Saving…"),
+      run: () => commit(edits),
+    });
+  }
+  async function commit(edits: { keywordMode: KeywordMode }): Promise<ConfirmResult> {
+    if (!snapshot || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
     let ok = false;
     let stale = false;
+    let failure: string | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({ edits: keywordModeSaveEdits(mode), revision: snapshot.revision }),
+        body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
       ok = true;
     } catch (error) {
-      stale = (error as Error)?.message?.includes("Config changed") === true;
+      failure = (error as Error)?.message ?? "";
+      stale = failure.includes("Config changed") === true;
     }
     const reloaded = (await reloadSettingsSnapshot<Snapshot>()) !== null;
     setBusy(false);
     saving.current = false;
     setStatus(stale ? { kind: "save", ok, reloaded, stale } : { kind: "save", ok, reloaded });
+    return ok ? { success: true } : { success: false, error: s(failure ?? "") };
   }
 
   function statusText(current: Status): string {
@@ -174,6 +201,7 @@ export function KeywordModeSection() {
           {statusText(status)}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

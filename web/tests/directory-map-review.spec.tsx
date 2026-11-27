@@ -27,6 +27,8 @@ mock.module("react", () => ({
 }));
 const { DirectoryMapsSection } =
   await import("../src/lib/components/settings/DirectoryMapsSection.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { publishSettingsSnapshot } = await import("../src/lib/settings-api.ts");
 type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
 type PathMap = { from: string; to: string };
@@ -93,7 +95,7 @@ function walk(value: ReactNode): Node[] {
   if (!react.isValidElement(value)) return [];
   const node = value as Node;
   const name = typeof node.type === "function" ? node.type.name : "";
-  if (["DirectoryMapHost", "DirectoryMapReviewDialog"].includes(name)) {
+  if (["DirectoryMapIgnoredList", "DirectoryMapHost", "DirectoryMapReviewDialog"].includes(name)) {
     return [node, ...walk((node.type as (props: Node["props"]) => ReactNode)(node.props))];
   }
   return [node, ...walk(node.props.children)];
@@ -129,6 +131,16 @@ function review() {
   return node!;
 }
 const click = (node: Node) => (node.props.onClick as () => void)();
+/** The shared confirm dialog an Ignore, Restore or Save removals opens. */
+const confirmDialog = () => tree().find((node) => node.type === SettingsConfirmDialog)!;
+/** Confirm it, then close it as the real one does when the request succeeds. */
+async function agree() {
+  const dialog = confirmDialog();
+  const result = await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  if (result.success) (dialog.props.onClose as () => void)();
+  await flush();
+  return result;
+}
 const flush = async () => {
   for (let i = 0; i < 6; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 };
@@ -464,43 +476,51 @@ it("starts guesses unticked and saves only the items left ticked", async () => {
   expect(host("claude-code").props.rows).toContainEqual(hostRows["claude-code"][0]);
 });
 
-it("ignores a row at once and restores it from Ignored directories", async () => {
+it("ignores a row only once the user confirms, and restores it the same way", async () => {
   await mount();
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  expect(patches()).toHaveLength(0);
+  await agree();
   expect(patches()[0].body).toEqual({
     revision: "rev-1",
     edits: { importIgnoredDirectories: ["/missing"] },
   });
   expect(host("pi").props.rows).not.toContainEqual(hostRows.pi[2]);
   click(button("Restore"));
-  await flush();
+  expect(patches()).toHaveLength(1);
+  await agree();
   expect(patches()[1].body).toEqual({ revision: "rev-2", edits: { importIgnoredDirectories: [] } });
   expect(host("pi").props.rows).toContainEqual(hostRows.pi[2]);
   expect(patches().every((call) => !call.body!.edits.importPathMaps)).toBe(true);
 });
 
-it("keeps the row after a failed Ignore and does not retry", async () => {
+it("keeps the row and the dialog open after a failed Ignore, and does not retry", async () => {
   await mount();
   reply = (call) =>
     call.method === "PATCH"
       ? Response.json({ error: "Changed elsewhere" }, { status: 409 })
       : defaultReply(call);
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  const result = await agree();
+  expect(result).toEqual({
+    success: false,
+    error: "Settings changed elsewhere. Check the list and try again.",
+  });
+  expect(tree().some((node) => node.type === SettingsConfirmDialog)).toBe(true);
   expect(patches()).toHaveLength(1);
   expect(host("pi").props.rows).toContainEqual(hostRows.pi[2]);
   const status = tree().find((node) => node.props.role === "status");
   expect(text(status?.props.children)).toContain("Settings changed elsewhere");
 });
 
-it("saves removals only through Save removals", async () => {
+it("saves removals only through Save removals, after the user confirms", async () => {
   await mount();
   expect(button("Save removals").props.disabled).toBe(true);
   click(button("Remove"));
   edit("pi", "/unsaved");
   click(button("Save removals"));
-  await flush();
+  expect(patches()).toHaveLength(0);
+  await agree();
   expect(patches()[0].body!.edits).toEqual({ importPathMaps: [] });
   expect(decisions()["/pi-old"]).toEqual({ directory: "/pi-old", target: "/unsaved" });
   expect(tree().some((node) => text(node.props.children) === "Save maps")).toBe(false);
@@ -515,7 +535,8 @@ it("restores an ignored directory written in another form in the config file", a
     settings: { importIgnoredDirectories: { globalValue: ["/scratch/"] } },
   });
   click(button("Restore"));
-  await flush();
+  expect(patches()).toHaveLength(0);
+  await agree();
   expect(patches()[0].body!.edits).toEqual({ importIgnoredDirectories: [] });
 });
 
@@ -532,9 +553,9 @@ it("refreshes the list after a conflicting Ignore, so a retry keeps ignores save
     return defaultReply(call);
   };
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  await agree();
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  await agree();
   expect(patches()).toHaveLength(2);
   expect(patches()[1].body).toEqual({
     revision: "rev-newer",
@@ -555,10 +576,15 @@ it("blocks Ignore after a conflict until the list is refreshed", async () => {
     return defaultReply(call);
   };
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  expect(await agree()).toMatchObject({ success: false });
   expect(host("pi").props.busy).toBe(true);
+  // The refused save keeps its dialog open with the reason; the user closes it.
+  (confirmDialog().props.onClose as () => void)();
+  await flush();
+  // A list that must be refreshed is a page check: the second Ignore opens no dialog at all.
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
   await flush();
+  expect(tree().some((node) => node.type === SettingsConfirmDialog)).toBe(false);
   expect(patches()).toHaveLength(1);
   offline = false;
   reply = defaultReply;
@@ -576,7 +602,8 @@ it("removes a saved map written as ~/x in the config file", async () => {
   });
   click(button("Remove"));
   click(button("Save removals"));
-  await flush();
+  expect(patches()).toHaveLength(0);
+  await agree();
   expect(patches()[0].body!.edits).toEqual({ importPathMaps: [] });
 });
 
@@ -588,7 +615,7 @@ it("reloads the list when another section saves, so Ignore keeps newer ignores",
   publishSettingsSnapshot({ revision: "rev-newer" });
   await flush();
   (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
-  await flush();
+  await agree();
   expect(patches()[0].body).toEqual({
     revision: "rev-newer",
     edits: { importIgnoredDirectories: ["/elsewhere", "/missing"] },

@@ -16,6 +16,9 @@ import {
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Switch } from "$lib/components/ui/switch";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
 import { useSettingsText } from "$lib/i18n/settings";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import {
@@ -25,6 +28,8 @@ import {
   keyDraftFromSecret,
   keyReference,
   parseRerankerTimeout,
+  RERANKER_KEY_FILE,
+  RERANKER_TIMEOUT_DEFAULT,
   rerankerFieldProblem,
   rerankerKeyBody,
   rerankerSaveEdits,
@@ -71,6 +76,8 @@ export function RerankerSection() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<RerankerStatus>();
   const [replacing, setReplacing] = useState(false);
+  const { ask, dialog } = useSettingsConfirm();
+  const { changes, name } = useSettingsChanges();
   const saving = useRef(false);
   // The latest shared snapshot, so a refresh can tell untouched fields from typed ones.
   const latestSnapshot = useRef<Snapshot | undefined>(undefined);
@@ -162,8 +169,74 @@ export function RerankerSection() {
     setStatus(result);
   }
 
+  /** The saved key in words the dialog can show: its source and where it lives, never the key. */
+  function savedKeyWord(): string {
+    const saved = keyDraftFromSecret(secret);
+    if (saved.keyChoice === "env") return `${t("Environment variable")} ${saved.keyInput.name}`;
+    if (saved.keyChoice === "file") return `${t("Key file")} ${saved.keyInput.path}`;
+    return t("No key");
+  }
+
+  /**
+   * The typed key in words: where it will live, never the key itself. A pasted key goes to a
+   * private file, so it reads as a key file with the name that file will have.
+   */
+  function typedKeyWord(): string {
+    if (draft.keyChoice === "env")
+      return `${t("Environment variable")} ${draft.keyInput.name.trim()}`;
+    if (draft.keyChoice === "file") return `${t("Key file")} ${draft.keyInput.path.trim()}`;
+    if (draft.keyChoice === "paste")
+      return `${t("Key file")} ${draft.keyInput.name.trim() || RERANKER_KEY_FILE}`;
+    return t("No key");
+  }
+
+  /** Asks first; the typed values stay in the form until the dialog closes. */
+  function save() {
+    if (!snapshot || !canSave || saving.current) return;
+    const edits = rerankerSaveEdits(draft, secret);
+    // The key goes through its own route; the list still names the change, in words.
+    const listEdits: Record<string, unknown> = { ...edits };
+    if (draft.keyChoice !== "none" && keyChanged(draft, secret))
+      listEdits.rerankerApiKey = typedKeyWord();
+    const savedDraft = draftFromSnapshot(snapshot);
+    const inForce: Record<string, unknown> = {
+      rerankerEnabled: savedDraft.enabled,
+      rerankerApiUrl: savedDraft.url.trim() || null,
+      rerankerModel: savedDraft.model.trim() || null,
+      rerankerTimeoutMs: parseRerankerTimeout(savedDraft.timeout) ?? RERANKER_TIMEOUT_DEFAULT,
+      rerankerApiKey: savedKeyWord(),
+    };
+    const textOrNull = (value: unknown) => (value == null ? t("Not set") : String(value));
+    const fields = [
+      { key: "rerankerEnabled", label: name("rerankerEnabled") },
+      { key: "rerankerApiUrl", label: name("rerankerApiUrl"), print: textOrNull },
+      { key: "rerankerModel", label: name("rerankerModel"), print: textOrNull },
+      // The key's values are already words, so the row prints them as they are.
+      { key: "rerankerApiKey", label: name("rerankerApiKey"), default: t("No key") },
+      {
+        key: "rerankerTimeoutMs",
+        label: name("rerankerTimeoutMs"),
+        default: RERANKER_TIMEOUT_DEFAULT,
+        print: (value: unknown) => `${String(value)} ${s("milliseconds")}`,
+      },
+    ];
+    const rows = changes(inForce, listEdits, fields);
+    ask({
+      title: s("Save the reranker settings?"),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save"),
+      busyLabel: s("Saving…"),
+      run: async () => {
+        const result = await persist();
+        // The server asked whether to replace the key file: that dialog takes over
+        // from this one, and nothing else is sent until the user decides.
+        return result.error === undefined ? { success: true } : result;
+      },
+    });
+  }
+
   /** Save the key first (it can need a confirm), then the other settings with the new revision. */
-  async function save(replace = false): Promise<ConfirmResult> {
+  async function persist(replace = false): Promise<ConfirmResult> {
     if (!snapshot || !canSave || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
@@ -408,10 +481,11 @@ export function RerankerSection() {
           title={t("Replace the key file?")}
           body={<p>{s("A key file with this name exists. Replace it?")}</p>}
           confirmLabel={t("Replace")}
-          onConfirm={() => save(true)}
+          onConfirm={() => persist(true)}
           onClose={() => setReplacing(false)}
         />
       )}
+      {dialog}
     </section>
   );
 }

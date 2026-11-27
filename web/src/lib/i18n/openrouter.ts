@@ -51,7 +51,12 @@ export const openrouterSettingText = {
     "هذا المزوّد موجود في القائمة.",
   ],
   "Save routing": ["保存路由", "حفظ التوجيه"],
+  "Save OpenRouter routing?": ["保存 OpenRouter 路由？", "حفظ توجيه OpenRouter؟"],
   "Saving routing…": ["正在保存路由…", "جارٍ حفظ التوجيه…"],
+  "Providers for this model in try order": [
+    "此模型的提供商尝试顺序",
+    "ترتيب تجربة المزوّدين لهذا النموذج",
+  ],
   "Routing saved.": ["路由已保存。", "تم حفظ التوجيه."],
   "Other routing fields are set in the config file and are kept.": [
     "其他路由字段在配置文件中设置，并会保留。",

@@ -130,10 +130,18 @@ function stubFetch(patch: () => { ok: boolean; body: unknown }, reloadFails = fa
 }
 const patchBody = () =>
   JSON.parse(String(calls.find((call) => call.init?.method === "PATCH")!.init!.body));
+/** A fresh render of the section, with the shared hook cursor reset as `tree` does. */
+const shown = (): Node[] => {
+  cursor = 0;
+  return find(ProfileLearningSettingsSection(), () => true);
+};
+const dialogOf = (nodes: Node[]) => nodes.find((node) => node.type === SettingsConfirmDialog)!;
+/** Submit the form, then confirm the dialog the save opens, as the user does. */
 const submitForm = async (nodes: Node[]) => {
   (submit(nodes).props.onSubmit as (event: { preventDefault: () => void }) => void)({
     preventDefault: () => {},
   });
+  await (dialogOf(shown()).props.onConfirm as () => Promise<{ success: boolean }>)();
   for (let i = 0; i < 6; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
@@ -245,6 +253,53 @@ it("saves only the changed keys, clears the draft and says so", async () => {
   expect(html({ status: states[3] as never })).toContain(
     "Saved. The next learning pass uses these settings."
   );
+});
+
+it("asks before it saves, and sends nothing until the user confirms", () => {
+  stubFetch(() => ({ ok: true, body: { success: true } }));
+  const nodes = tree({ draft: { userProfileWithoutEmail: "skip" } });
+  (submit(nodes).props.onSubmit as (event: { preventDefault: () => void }) => void)({
+    preventDefault: () => {},
+  });
+  const dialog = dialogOf(shown());
+  expect(dialog.props.title).toBe("Save learning settings?");
+  expect(dialog.props.confirmLabel).toBe("Save");
+  expect(dialog.props.body.props.changes).toEqual([
+    { key: "userProfileWithoutEmail", label: "No user email", from: "Learn anyway", to: "Skip" },
+  ]);
+  expect(calls).toHaveLength(0);
+});
+
+it("sends nothing on Cancel, and the choices stay in the draft", () => {
+  stubFetch(() => {
+    throw new Error("no request expected");
+  });
+  const nodes = tree({ draft: { userProfileDecayBeforeMerge: true } });
+  (submit(nodes).props.onSubmit as (event: { preventDefault: () => void }) => void)({
+    preventDefault: () => {},
+  });
+  (dialogOf(shown()).props.onClose as () => void)();
+  expect(calls).toHaveLength(0);
+  expect(states[1]).toEqual({ userProfileDecayBeforeMerge: true });
+  const after = shown();
+  expect(dialogOf(after)).toBeUndefined();
+  expect(after.filter((node) => node.type === Select)[1]!.props.value).toBe("true");
+});
+
+it("keeps a save refusal inside the dialog, which stays open", async () => {
+  stubFetch(() => ({ ok: false, body: { error: "Settings are locked by the administrator." } }));
+  const nodes = tree({ draft: { userProfileWithoutEmail: "skip" } });
+  (submit(nodes).props.onSubmit as (event: { preventDefault: () => void }) => void)({
+    preventDefault: () => {},
+  });
+  const dialog = dialogOf(shown());
+  const result = await (
+    dialog.props.onConfirm as () => Promise<{ success: boolean; error?: string }>
+  )();
+  expect(result.success).toBe(false);
+  expect(result.error).toContain("Settings are locked by the administrator");
+  expect(dialogOf(shown())).toBeDefined();
+  expect(states[1]).toEqual({ userProfileWithoutEmail: "skip" });
 });
 
 it("keeps the values the server confirmed when the reload after a save fails", async () => {

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
 import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsChanges } from "@/hooks/useSettingsChanges";
+import { SettingsChangeList } from "$lib/components/settings/SettingsChangeList";
+import type { ConfirmResult } from "$lib/components/settings/SettingsConfirmDialog";
 import { Callout } from "$lib/components/skills/Callout";
 import { Button } from "$lib/components/ui/button";
 import { Label } from "$lib/components/ui/label";
@@ -54,6 +57,7 @@ export function ReasoningLevel({
   const [picked, setPicked] = useState<{ at: string; level: string }>();
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
   const { ask, dialog } = useSettingsConfirm();
+  const { changes } = useSettingsChanges();
 
   const family = reasoningFamily(savedUrl, savedProvider);
   if (family === "none") {
@@ -115,10 +119,35 @@ export function ReasoningLevel({
     }
   }
 
-  async function saveLevel() {
+  /** Saves the level and reports on the card. A refusal keeps the dialog open with its reason. */
+  async function saveLevelNow(): Promise<ConfirmResult> {
     setSave({ kind: "saving" });
     const failure = await submit();
-    setSave(failure === undefined ? { kind: "saved" } : { kind: "error", message: failure });
+    if (failure !== undefined) {
+      setSave({ kind: "error", message: failure });
+      return { success: false, error: failure };
+    }
+    setSave({ kind: "saved" });
+    return { success: true };
+  }
+
+  /** Asks first. The picked level stays on screen as a draft when the user cancels. */
+  function saveLevel() {
+    const fields = [
+      {
+        key: "level",
+        label: s("Reasoning level"),
+        print: (value: unknown) => label(value as Level),
+      },
+    ];
+    const rows = changes({ level: initial }, { level: shown }, fields);
+    ask({
+      title: s("Save reasoning level?"),
+      body: <SettingsChangeList changes={rows} />,
+      confirmLabel: s("Save reasoning level"),
+      busyLabel: s("Saving reasoning level…"),
+      run: saveLevelNow,
+    });
   }
 
   // A hand-written value is replaced by the save, so the user confirms first. The dialog shows
@@ -151,7 +180,7 @@ export function ReasoningLevel({
         save.kind === "saving" || readOnly || shown === "custom" || blockReason !== undefined
       }
       aria-describedby={blockReason === undefined ? undefined : "reasoning-save-reason"}
-      onClick={() => (initial === "custom" ? askToReplace() : void saveLevel())}
+      onClick={() => (initial === "custom" ? askToReplace() : saveLevel())}
     >
       {s("Save reasoning level")}
     </Button>

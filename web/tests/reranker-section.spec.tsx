@@ -82,6 +82,11 @@ const click = async (tree: Node[], label: string) => {
   await byText(tree, Button, label)[0]!.props.onClick();
   await flush();
 };
+/** Confirms the dialog a Save opened, as the user does, and lets the request finish. */
+const confirm = async () => {
+  await byType(after(), SettingsConfirmDialog)[0]!.props.onConfirm();
+  await flush();
+};
 
 beforeEach(() => {
   resetRender();
@@ -206,6 +211,7 @@ it("saves a pasted key to a private file first, then the other settings, with th
     request.path === "/api/settings/external-api/key" ? { body: { revision: "rev-2" } } : undefined
   );
   await click(after(), "Save");
+  await confirm();
   const writes = requests.filter((r) => r.method !== "GET");
   expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual([
     "POST /api/settings/external-api/key",
@@ -238,6 +244,7 @@ it("saves an environment variable key through the same route", async () => {
   keyField(tree).props.onChoice("env");
   keyField(after()).props.onInput({ name: "RERANK_KEY", path: "", value: "" });
   await click(after(), "Save");
+  await confirm();
   const key = requests.find((r) => r.path === "/api/settings/external-api/key")!;
   expect(key.body).toMatchObject({ source: "env", name: "RERANK_KEY", setting: "rerankerApiKey" });
 });
@@ -258,8 +265,13 @@ it("asks before it replaces an existing key file, and sends nothing else until i
   );
   await click(after(), "Save");
   expect(requests.some((r) => r.method === "PATCH")).toBe(false);
+  // The shared dialog is the confirmation of the Save; the server then asks about the key file.
+  await byType(after(), SettingsConfirmDialog)[0]!.props.onConfirm();
+  await flush();
+  expect(requests.some((r) => r.method === "PATCH")).toBe(false);
   const dialog = byType(after(), SettingsConfirmDialog)[0]!;
   expect(dialog).toBeTruthy();
+  expect(dialog.props.title).toBe("Replace the key file?");
   const result = await dialog.props.onConfirm();
   await flush();
   expect(result.success).toBe(true);
@@ -274,9 +286,137 @@ it("removes the saved key only when the user chooses No key", async () => {
   keyField(tree).props.onChoice("none");
   typeInto(after(), "reranker-model", "m");
   await click(after(), "Save");
+  await confirm();
   expect(requests.some((r) => r.path === "/api/settings/external-api/key")).toBe(false);
   const patch = requests.find((r) => r.method === "PATCH")!;
   expect(patch.body.edits.rerankerApiKey).toBeNull();
+});
+
+it("asks before it saves, and sends nothing until the user confirms", async () => {
+  const tree = await fillServer(await load());
+  typeInto(tree, "reranker-timeout", "6000");
+  requests.length = 0;
+  await click(after(), "Save");
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  expect(dialog.props.title).toBe("Save the reranker settings?");
+  expect(dialog.props.confirmLabel).toBe("Save");
+  expect(dialog.props.body.props.changes).toEqual([
+    { key: "rerankerEnabled", label: "Reorder results with a reranker", from: "Off", to: "On" },
+    { key: "rerankerApiUrl", label: "Reranker server address", from: "Not set", to: SERVER },
+    { key: "rerankerModel", label: "Reranker model", from: "Not set", to: "Qwen3-Reranker-0.6B" },
+    {
+      key: "rerankerTimeoutMs",
+      label: "Reranker wait time",
+      from: "4000 milliseconds",
+      to: "6000 milliseconds",
+    },
+  ]);
+  expect(requests.filter((r) => r.method !== "GET")).toHaveLength(0);
+  // Cancel keeps the typed values as a draft, and sends nothing.
+  dialog.props.onClose();
+  await flush();
+  expect(byType(after(), SettingsConfirmDialog)).toHaveLength(0);
+  expect(requests.filter((r) => r.method !== "GET")).toHaveLength(0);
+  expect(field(after(), "reranker-url").props.value).toBe(SERVER);
+  expect(field(after(), "reranker-timeout").props.value).toBe("6000");
+});
+
+it("lists the key change in words, never the key itself", async () => {
+  const tree = await fillServer(await load({ set: true, source: "env", reference: "RERANK_KEY" }));
+  keyField(tree).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  await click(after(), "Save");
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  const row = (dialog.props.body.props.changes as { key: string }[]).find(
+    (change) => change.key === "rerankerApiKey"
+  )!;
+  expect(row).toEqual({
+    key: "rerankerApiKey",
+    label: "Reranker key",
+    from: "Environment variable RERANK_KEY",
+    to: "Key file rerank",
+  });
+  expect(JSON.stringify(dialog.props.body)).not.toContain("sk-secret");
+});
+
+it("lists a key that changes but keeps its source, so a new key is never left out", async () => {
+  const keyRow = () =>
+    (byType(after(), SettingsConfirmDialog)[0]!.props.body.props.changes as { key: string }[]).find(
+      (change) => change.key === "rerankerApiKey"
+    );
+  // A new pasted key lands in a file too, so the source words alone would not change.
+  const saved = {
+    set: true,
+    source: "file",
+    reference: "/home/me/.config/omms/secrets/reranker.key",
+  };
+  keyField(await fillServer(await load(saved))).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  await click(after(), "Save");
+  expect(keyRow()).toMatchObject({
+    from: "Key file /home/me/.config/omms/secrets/reranker.key",
+    to: "Key file rerank",
+  });
+  expect(JSON.stringify(keyRow())).not.toContain("sk-secret");
+
+  // Another variable name is a new key too.
+  resetRender();
+  const first = await fillServer(await load({ set: true, source: "env", reference: "RERANK_KEY" }));
+  keyField(first).props.onInput({ name: "OTHER_KEY", path: "", value: "" });
+  await click(after(), "Save");
+  expect(keyRow()).toMatchObject({
+    from: "Environment variable RERANK_KEY",
+    to: "Environment variable OTHER_KEY",
+  });
+});
+
+it("opens the dialog with an empty change list when nothing changed, and saves only on confirm", async () => {
+  const MODEL = "Qwen3-Reranker-0.6B";
+  const entry = (value: unknown) => ({ value, source: "global", globalValue: value });
+  const same = {
+    revision: "rev-1",
+    settings: {
+      rerankerEnabled: entry(true),
+      rerankerApiUrl: entry(SERVER),
+      rerankerModel: entry(MODEL),
+      rerankerTimeoutMs: entry(4000),
+    },
+    secrets: { rerankerApiKey: { set: false, source: null, reference: null } },
+  };
+  await load(undefined, (request) => (request.method === "GET" ? { body: same } : undefined));
+  requests.length = 0;
+  await click(after(), "Save");
+
+  // Nothing changed, so the dialog opens with no rows and sends nothing yet.
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  expect(dialog.props.body.props.changes).toEqual([]);
+  expect(requests.find((request) => request.method === "PATCH")).toBeUndefined();
+  await dialog.props.onConfirm();
+  await flush();
+  const patch = requests.find((request) => request.method === "PATCH")!;
+  expect(patch.body.edits).toEqual({
+    rerankerEnabled: true,
+    rerankerApiUrl: SERVER,
+    rerankerModel: MODEL,
+    rerankerTimeoutMs: 4000,
+  });
+});
+
+it("keeps a save refusal inside the dialog, which stays open", async () => {
+  const REFUSED = "Config changed. Reload settings and save again.";
+  await fillServer(
+    await load(undefined, (request) =>
+      request.method === "PATCH" ? { status: 409, body: { error: REFUSED } } : undefined
+    )
+  );
+  await click(after(), "Save");
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  expect(await dialog.props.onConfirm()).toEqual({ success: false, error: REFUSED });
+  await flush();
+  expect(byType(after(), SettingsConfirmDialog)).toHaveLength(1);
+  expect(allText(after())).toContain(REFUSED);
+  // The drafts stay, so the user can save again.
+  expect(field(after(), "reranker-url").props.value).toBe(SERVER);
 });
 
 it("tests the values in the form, with the key source from the form", async () => {

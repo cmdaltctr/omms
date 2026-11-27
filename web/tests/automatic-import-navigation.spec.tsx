@@ -98,7 +98,7 @@ it("keeps the backfill model and the automatic-import switch in each host's own 
   expect(opencode).toContain('aria-label="OpenCode Backfill model"');
   expect(opencode).toContain("Save model");
   expect(opencode).toContain("Import past chats automatically");
-  expect(opencode).toMatch(/type="checkbox"[^>]*checked/);
+  expect(opencode).toMatch(/role="switch"[^>]*aria-checked="true"/);
   expect(opencode).toContain("applies to every host");
 });
 

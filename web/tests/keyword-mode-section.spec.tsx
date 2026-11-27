@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, expect, it, mock } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement, ReactNode } from "react";
 import * as react from "react";
@@ -30,6 +30,8 @@ mock.module("react", () => ({
 const { KeywordModeSection } = await import("../src/lib/components/memory/KeywordModeSection.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
 const { SettingRow } = await import("../src/lib/components/settings/SettingRow.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { PLAIN_TEXT } = await import("../src/lib/settings-catalogue.ts");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 
@@ -48,7 +50,42 @@ function snapshotFixture(overrides: Record<string, Setting> = {}) {
   };
 }
 
-beforeEach(() => setLanguage("en"));
+beforeEach(() => {
+  setLanguage("en");
+  Object.assign(globalThis, { window: { __OMMS_TOKEN__: "page-token" } });
+});
+
+type Call = { url: string; init?: RequestInit };
+const realFetch = globalThis.fetch;
+let calls: Call[] = [];
+function stubFetch(reply: (call: Call) => unknown) {
+  calls = [];
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const call = { url: String(url), init };
+    calls.push(call);
+    return reply(call);
+  }) as unknown as typeof fetch;
+}
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+/** The Save button submits the form, so the form's onSubmit is the click. */
+const submitForm = (nodes: Node[]) =>
+  (
+    nodes.find((node) => node.type === "form")!.props.onSubmit as (event: {
+      preventDefault: () => void;
+    }) => void
+  )({ preventDefault: () => {} });
+/** A fresh render of the card, with the shared hook cursor reset as `tree` does. */
+const shown = (): Node[] => {
+  cursor = 0;
+  return find(KeywordModeSection(), () => true);
+};
+const dialogOf = (nodes: Node[]) => nodes.find((node) => node.type === SettingsConfirmDialog)!;
+const rowsOf = (dialog: Node) => dialog.props.body.props.changes as unknown[];
+const flush = async () => {
+  for (let i = 0; i < 4; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 const html = (mode = "boost", overrides: Record<string, Setting> = {}, busy = false) => {
   states = [snapshotFixture(overrides), mode, busy, undefined];
@@ -135,4 +172,92 @@ it("has a Chinese and an Arabic text for every message the card shows", () => {
     expect(translateSettings(message, "zh")).not.toBe(message);
     expect(translateSettings(message, "ar")).not.toBe(message);
   }
+});
+
+it("asks before it saves the mode, and sends nothing until the user confirms", () => {
+  stubFetch((call) =>
+    call.init?.method === "PATCH"
+      ? { ok: true, json: async () => ({}) }
+      : { ok: true, json: async () => snapshotFixture() }
+  );
+  submitForm(tree("rrf"));
+  const dialog = dialogOf(shown());
+  expect(dialog.props.title).toBe("Save keyword matching?");
+  expect(dialog.props.confirmLabel).toBe("Save");
+  expect(rowsOf(dialog)).toEqual([
+    {
+      key: "keywordMode",
+      label: "How word matches join the results",
+      from: PLAIN_TEXT.keywordBoost,
+      to: PLAIN_TEXT.keywordMerge,
+    },
+  ]);
+  expect(calls.filter((call) => call.init?.method === "PATCH")).toHaveLength(0);
+});
+
+it("lists the mode names in the language of the page", () => {
+  stubFetch(() => {
+    throw new Error("no request expected");
+  });
+  setLanguage("ar");
+  submitForm(tree("rrf"));
+  const [row] = rowsOf(dialogOf(shown())) as { from: string; to: string }[];
+  // The dropdown shows these names translated, so the dialog must too.
+  expect(row!.from).not.toBe(PLAIN_TEXT.keywordBoost);
+  expect(row!.to).not.toBe(PLAIN_TEXT.keywordMerge);
+  expect(row!.from).toMatch(/[؀-ۿ]/);
+  expect(row!.to).toMatch(/[؀-ۿ]/);
+});
+
+it("sends nothing on Cancel, and the chosen mode stays", () => {
+  stubFetch(() => {
+    throw new Error("no request expected");
+  });
+  submitForm(tree("rrf"));
+  (dialogOf(shown()).props.onClose as () => void)();
+  expect(calls).toHaveLength(0);
+  expect(states[1]).toBe("rrf");
+  expect(shown().filter((node) => node.type === Select)[0]!.props.value).toBe("rrf");
+});
+
+it("sends the same request as before the rule once the user confirms", async () => {
+  stubFetch((call) =>
+    call.init?.method === "PATCH"
+      ? { ok: true, json: async () => ({}) }
+      : { ok: true, json: async () => snapshotFixture() }
+  );
+  submitForm(tree("rrf"));
+  const dialog = dialogOf(shown());
+  const result = await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  expect(result).toEqual({ success: true });
+  const patch = calls.find((call) => call.init?.method === "PATCH")!;
+  expect(patch.url).toBe("/api/settings");
+  expect(JSON.parse(String(patch.init!.body))).toEqual({
+    edits: { keywordMode: "rrf" },
+    revision: "rev-1",
+  });
+});
+
+it("keeps a server refusal inside the dialog, which stays open", async () => {
+  stubFetch((call) =>
+    call.init?.method === "PATCH"
+      ? {
+          ok: false,
+          status: 409,
+          json: async () => ({ error: "Config changed. Reload settings and save again." }),
+        }
+      : { ok: true, json: async () => snapshotFixture() }
+  );
+  submitForm(tree("rrf"));
+  const dialog = dialogOf(shown());
+  const result = await (
+    dialog.props.onConfirm as () => Promise<{ success: boolean; error?: string }>
+  )();
+  expect(result).toMatchObject({
+    success: false,
+    error: "Config changed. Reload settings and save again.",
+  });
+  expect(dialogOf(shown())).toBeDefined();
+  await flush();
+  expect(states[1]).toBe("rrf");
 });
