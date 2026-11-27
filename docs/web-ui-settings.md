@@ -59,6 +59,8 @@ When you select **Save**, a dialog opens before OMMS sends anything. Its title n
 - **Cancel** sends nothing. The text you typed stays in the form, so you can select **Save** again.
 - A setting that saves when you change it, such as **Summary language**, shows your choice while the dialog is open. **Cancel** puts the saved value back.
 - A button that starts or stops a job, such as **Retry now** or **Record past turns**, asks first with one sentence. The sentence says what the job does.
+- A **Save** that changes nothing still asks first. The dialog says that saving writes the current values again.
+- If the save fails, the dialog shows the reason and its confirm button turns off. Close the dialog and select **Save** again, so the dialog shows the current settings.
 - A value that fails a check on the page shows its message on the page, and no dialog opens.
 - A choice that changes only how the page looks, such as the theme and the date format, saves with no dialog.
 

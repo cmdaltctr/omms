@@ -92,14 +92,18 @@ it("names the host, lists the model change and sends nothing until the user conf
   expect(patches()).toHaveLength(0);
 });
 
-it("saves with no dialog when the choice did not change, as it did before it asked first", async () => {
+it("opens the dialog with an empty change list when the choice did not change, and saves only on confirm", async () => {
   let tree = await settle(<ModelsSection />, own);
   expect(choice(tree).props.value).toBe("inherit");
   saveModel(tree).props.onClick();
   tree = await settle(<ModelsSection />, own);
 
-  // Save stays on for an unchanged choice, and the dialog has nothing to list for it.
-  expect(dialogOf(tree)).toBeUndefined();
+  // Save stays on for an unchanged choice. The dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(patches()).toHaveLength(0);
+
+  await confirm(tree);
   expect(patches()).toHaveLength(1);
   expect(patches()[0]!.body).toEqual({ edits: { opencodeModel: "inherit" }, revision: "r1" });
 });

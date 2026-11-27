@@ -478,7 +478,7 @@ it("asks before it saves the routing, and sends the same request once the user c
   expect(requests.some((request) => request.path === "/api/settings")).toBe(true);
 });
 
-it("saves with no dialog when no routing choice changed, as it did before it asked first", async () => {
+it("opens the dialog with an empty change list when no routing choice changed, and saves only on confirm", async () => {
   requests = installFetch((request) => {
     if (request.path.startsWith(LIST)) return { body: { ok: true, providers: rows } };
     if (request.path === SAVE) return { body: { revision: "rev-10", provider: {} } };
@@ -488,8 +488,12 @@ it("saves with no dialog when no routing choice changed, as it did before it ask
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
 
-  // Save routing stays on when nothing changed, and the dialog has nothing to list for it.
-  expect(dialogOf(tree)).toBeUndefined();
+  // Save routing stays on when nothing changed. The dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
+  tree = await settle(block(), own);
   expect(posts()).toHaveLength(1);
   expect(posts()[0]!.body).toMatchObject({ revision: "rev-9" });
   expect(posts()[0]!.body.routing).toBeDefined();
@@ -823,6 +827,8 @@ it("clears Routing saved. as soon as any routing control changes", async () => {
   let tree = await settle(block(), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
+  await confirm(tree);
+  tree = await settle(block(), own);
   expect(statusLines(tree).join(" ")).toContain("Routing saved.");
 
   const edits: Array<(tree: Node[]) => void> = [
@@ -835,6 +841,8 @@ it("clears Routing saved. as soon as any routing control changes", async () => {
     resetRender();
     tree = await settle(block(), own);
     (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+    tree = await settle(block(), own);
+    await confirm(tree);
     tree = await settle(block(), own);
     expect(statusLines(tree).join(" ")).toContain("Routing saved.");
     edit(tree);
@@ -869,6 +877,8 @@ it("clears Routing saved. when Use only these providers changes", async () => {
   );
   let tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
+  await confirm(tree);
   tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
   expect(statusLines(tree).join(" ")).toContain("Routing saved.");
   (box(tree, "openrouter-only").props.onCheckedChange as (v: boolean) => void)(true);

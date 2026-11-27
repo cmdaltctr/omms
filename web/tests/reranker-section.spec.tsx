@@ -370,7 +370,7 @@ it("lists a key that changes but keeps its source, so a new key is never left ou
   });
 });
 
-it("saves with no dialog when nothing changed, as it did before it asked first", async () => {
+it("opens the dialog with an empty change list when nothing changed, and saves only on confirm", async () => {
   const MODEL = "Qwen3-Reranker-0.6B";
   const entry = (value: unknown) => ({ value, source: "global", globalValue: value });
   const same = {
@@ -387,7 +387,12 @@ it("saves with no dialog when nothing changed, as it did before it asked first",
   requests.length = 0;
   await click(after(), "Save");
 
-  expect(byType(after(), SettingsConfirmDialog)).toHaveLength(0);
+  // Nothing changed, so the dialog opens with no rows and sends nothing yet.
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  expect(dialog.props.body.props.changes).toEqual([]);
+  expect(requests.find((request) => request.method === "PATCH")).toBeUndefined();
+  await dialog.props.onConfirm();
+  await flush();
   const patch = requests.find((request) => request.method === "PATCH")!;
   expect(patch.body.edits).toEqual({
     rerankerEnabled: true,

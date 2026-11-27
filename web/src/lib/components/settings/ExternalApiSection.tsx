@@ -182,11 +182,8 @@ export function ExternalApiSection() {
       lead: `${t(testFailureText(reply.reason))} ${t("Save these settings anyway? Capture fails until OMMS can reach the address.")}`,
       confirmLabel: t("Save anyway"),
       busyLabel: t("Saving…"),
-      // The dialog closes; the card shows the save's progress and result.
-      run: async () => {
-        void persist(snapshot.revision);
-        return { success: true };
-      },
+      // A refusal stays in this dialog; the key-file dialog can still take over.
+      run: () => runSave(snapshot.revision),
     });
   }
 

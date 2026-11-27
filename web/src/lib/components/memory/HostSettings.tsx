@@ -67,12 +67,6 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
     const rows = changes({ [key]: saved }, edits, [
       { key, label: s("Backfill model"), print: modelName },
     ]);
-    // Save stays on for an unchanged model. The dialog has nothing to list for that, so the card
-    // saves as it did before it asked first.
-    if (rows.length === 0) {
-      void backfill.save(edits);
-      return;
-    }
     ask({
       title: s("Save the backfill model?"),
       body: <SettingsChangeList changes={rows} />,

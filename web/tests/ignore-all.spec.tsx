@@ -203,7 +203,7 @@ it("keeps the dialog open and says why when the save fails", async () => {
   await settle();
   const after = render();
   expect(dialog(after)).toBeDefined();
-  expect(texts(after)).toContain("The directories could not be ignored. Try again.");
+  expect(texts(after)).toContain("The directories could not be ignored. Try again. stale");
 });
 
 it("says so, and keeps the dialog open, when the list is not ready to save", async () => {

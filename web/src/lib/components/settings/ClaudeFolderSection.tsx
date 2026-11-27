@@ -76,12 +76,6 @@ export function ClaudeFolderSection() {
     ];
     const inForce = { claudeConfigDir: snapshot.settings.claudeConfigDir?.globalValue };
     const rows = changes(inForce, edits, fields);
-    // Save stays on for an unchanged folder. The dialog has nothing to list for that, so the card
-    // saves as it did before it asked first.
-    if (rows.length === 0) {
-      void saveFolder(edits);
-      return;
-    }
     ask({
       title: s("Save the Claude Code folder?"),
       body: <SettingsChangeList changes={rows} />,

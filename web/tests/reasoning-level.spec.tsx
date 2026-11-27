@@ -219,8 +219,11 @@ it("drops a pending pick that the new saved endpoint does not offer", async () =
   expect(select(tree).props.value).toBe("default");
   (saveButton(tree).props.onClick as () => void)();
   tree = await settle(card(other), own);
-  // The level on screen is the saved one, so the dialog has nothing to list and none opens.
-  expect(dialogOf(tree)).toBeUndefined();
+  // The level on screen is the saved one, so the dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
   expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
     revision: "rev-9",
     level: "default",
@@ -407,7 +410,7 @@ it("keeps a server refusal inside the ordinary-save dialog, which stays open", a
   expect(allText(tree)).not.toContain("Reasoning level saved.");
 });
 
-it("saves a level that did not change with no dialog, because the dialog has nothing to list", async () => {
+it("opens the dialog with an empty change list for a level that did not change, and saves only on confirm", async () => {
   // Save stays on for an unchanged level, and it sends the same request as before this rule.
   const same = { saved: { reasoning: { effort: "high" } } };
   let tree = await settle(card(same), own);
@@ -415,7 +418,11 @@ it("saves a level that did not change with no dialog, because the dialog has not
   (saveButton(tree).props.onClick as () => void)();
   tree = await settle(card(same), own);
 
-  expect(dialogOf(tree)).toBeUndefined();
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(posts()).toHaveLength(0);
+  await confirm(tree);
+  tree = await settle(card(same), own);
   expect(posts()).toHaveLength(1);
   expect(posts()[0]!.body).toEqual({ revision: "rev-9", level: "high" });
   expect(allText(tree)).toContain("Reasoning level saved.");

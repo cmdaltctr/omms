@@ -50,9 +50,10 @@ it("reads the link between the values in Arabic", async () => {
   expect(allText(tree)).not.toContain("changes to");
 });
 
-it("shows nothing when the save changes nothing", async () => {
+it("says that nothing changes when the save changes nothing", async () => {
   const tree = await settle(list([]), own);
-  expect(allText(tree).trim()).toBe("");
+  expect(allText(tree).trim()).toBe("Nothing changes. Saving writes the current values again.");
+  expect(typed(tree, "dt")).toEqual([]);
 });
 
 it("gives the helper the words and the setting names of the page", async () => {

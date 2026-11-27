@@ -92,12 +92,12 @@ export function MemorySection() {
   // The values in force, keyed as the request spells them, so the dialog lists the same
   // numbers the card compares a draft against.
   const inForce = Object.fromEntries(
-    MEMORY_CONTROLS.map((control) => [control.key, loaded[control.key] ?? control.default])
+    MEMORY_CONTROLS.map((control) => [control.key, loaded[control.key] ?? defaults[control.key]])
   );
   const fields = MEMORY_CONTROLS.map((control) => ({
     key: control.key,
     label: name(control.key),
-    default: control.default,
+    default: defaults[control.key],
     print: (value: unknown) =>
       typeof value === "number" ? formatMemoryDefault(value) : String(value ?? ""),
   }));

@@ -141,12 +141,6 @@ export function ReasoningLevel({
       },
     ];
     const rows = changes({ level: initial }, { level: shown }, fields);
-    // Save also serves a level that did not change. The dialog has nothing to list for that, so
-    // the card saves as it did before it asked first.
-    if (rows.length === 0) {
-      void saveLevelNow();
-      return;
-    }
     ask({
       title: s("Save reasoning level?"),
       body: <SettingsChangeList changes={rows} />,

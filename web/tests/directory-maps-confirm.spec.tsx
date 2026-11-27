@@ -186,7 +186,7 @@ it("sends nothing when the user cancels an Ignore, and the row stays", async () 
   expect(button(tree, "Ignore")).toBeDefined();
 });
 
-it("keeps a failed Ignore in the dialog, with the card's reason", async () => {
+it("keeps a failed Ignore in the dialog, with the card's reason and the server's message", async () => {
   refusal = { status: 400, error: "Target unavailable" };
   let tree = await shown();
   button(tree, "Ignore").props.onClick();
@@ -195,7 +195,7 @@ it("keeps a failed Ignore in the dialog, with the card's reason", async () => {
   const result = await dialogOf(tree)!.props.onConfirm();
   expect(result).toEqual({
     success: false,
-    error: "The directory could not be ignored. Try again.",
+    error: "The directory could not be ignored. Try again. Target unavailable",
   });
   tree = await shown();
   expect(dialogOf(tree)).toBeDefined();

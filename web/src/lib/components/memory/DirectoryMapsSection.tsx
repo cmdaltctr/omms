@@ -154,9 +154,12 @@ export function DirectoryMapsSection({
       const conflict = error instanceof SettingsRequestError && error.status === 409;
       try {
         if (!conflict) {
-          setMessage(failed);
+          // The server's reason follows the card's own words, when it gave one.
+          const reason = error instanceof Error ? error.message : "";
+          const text = reason ? `${failed} ${reason}` : failed;
+          setMessage(text);
           await reloadSettingsSnapshot<Snapshot>();
-          return failed;
+          return text;
         }
         let failure = "Settings changed elsewhere. Check the list and try again.";
         setMessage(failure);

@@ -173,12 +173,14 @@ export function OpenRouterRouting({
       order: initial.openRouterChooses ? [] : initial.ticked,
       only: initial.openRouterChooses ? false : initial.only,
     };
+    const sentOrder = state.openRouterChooses ? [] : usableTicked(state, loaded);
+    // The request sends Only just when a usable provider is ticked, as providerFromRouting does.
     const asSent = {
       data_collection: state.dataCollection,
       zdr: state.zdr,
       chooses: state.openRouterChooses,
-      order: state.openRouterChooses ? [] : usableTicked(state, loaded),
-      only: state.openRouterChooses ? false : state.only,
+      order: sentOrder,
+      only: sentOrder.length > 0 && state.only,
     };
     const fields = [
       { key: "data_collection", label: s("Block providers that may train on or store data") },
@@ -193,12 +195,6 @@ export function OpenRouterRouting({
       { key: "only", label: s("Use only these providers") },
     ];
     const rows = changes(asSaved, asSent, fields);
-    // Save routing stays on when nothing changed. The dialog has nothing to list for that, so the
-    // card saves as it did before it asked first.
-    if (rows.length === 0) {
-      void sendRouting();
-      return;
-    }
     ask({
       title: s("Save OpenRouter routing?"),
       body: <SettingsChangeList changes={rows} />,

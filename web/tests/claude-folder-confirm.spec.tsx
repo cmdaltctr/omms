@@ -88,15 +88,19 @@ it("lists the typed folder and sends nothing until the user confirms", async () 
   expect(patches()).toHaveLength(0);
 });
 
-it("saves with no dialog when the folder did not change, as it did before it asked first", async () => {
+it("opens the dialog with an empty change list when the folder did not change, and saves only on confirm", async () => {
   folder = "/data/claude";
   let tree = await settle(<ClaudeFolderSection />, own);
   expect(field(tree).props.value).toBe("/data/claude");
   buttonOf(tree, "Save folder").props.onClick();
   tree = await settle(<ClaudeFolderSection />, own);
 
-  // Save stays on for an unchanged folder, and the dialog has nothing to list for it.
-  expect(dialogOf(tree)).toBeUndefined();
+  // Save stays on for an unchanged folder. The dialog opens with nothing to list.
+  expect(dialogOf(tree)).toBeDefined();
+  expect(rowsOf(dialogOf(tree)!)).toEqual([]);
+  expect(patches()).toHaveLength(0);
+
+  await confirm(tree);
   expect(patches()).toHaveLength(1);
   expect(patches()[0]!.body).toEqual({
     edits: { claudeConfigDir: "/data/claude" },

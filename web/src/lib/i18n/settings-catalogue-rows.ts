@@ -29,6 +29,14 @@ export const settingsCatalogueRowText = {
   None: ["无", "لا شيء"],
   // The list of changes in a settings confirm dialog.
   "changes to": ["改为", "يتغير إلى"],
+  "Nothing changes. Saving writes the current values again.": [
+    "没有更改。保存会再次写入当前值。",
+    "لا يتغير شيء. الحفظ يكتب القيم الحالية مرة أخرى.",
+  ],
+  "Close this dialog and save again, so it shows the current settings.": [
+    "请关闭此对话框并重新保存，以显示当前设置。",
+    "أغلق هذه النافذة واحفظ مرة أخرى، لتعرض الإعدادات الحالية.",
+  ],
   "This project": ["本项目", "هذا المشروع"],
   "OpenAI Chat Completions": ["OpenAI Chat Completions", "OpenAI Chat Completions"],
   "Session model": ["会话模型", "نموذج الجلسة"],

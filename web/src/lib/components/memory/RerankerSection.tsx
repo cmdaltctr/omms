@@ -221,12 +221,6 @@ export function RerankerSection() {
       },
     ];
     const rows = changes(inForce, listEdits, fields);
-    // Save stays on when nothing changed. The dialog has nothing to list for that, so the card
-    // saves as it did before it asked first.
-    if (rows.length === 0) {
-      void persist();
-      return;
-    }
     ask({
       title: s("Save the reranker settings?"),
       body: <SettingsChangeList changes={rows} />,

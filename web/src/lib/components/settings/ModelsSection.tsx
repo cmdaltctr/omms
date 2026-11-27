@@ -106,12 +106,6 @@ export function ModelsSection() {
       [modelKey]: snapshot.settings[modelKey]?.globalValue,
     };
     const rows = changes(inForce, edits, fields);
-    // Save stays on for an unchanged choice. The dialog has nothing to list for that, so the card
-    // saves as it did before it asked first.
-    if (rows.length === 0) {
-      void saveChoice(edits);
-      return;
-    }
     ask({
       title: fill(s("Save the {host} model?"), { host: hostLabel(host as "opencode" | "pi") }),
       body: <SettingsChangeList changes={rows} />,

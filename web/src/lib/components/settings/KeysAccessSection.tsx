@@ -233,7 +233,6 @@ export function KeysAccessSection() {
   }
 
   const generate = (name: string, expiresInDays: number | null) => {
-    let failure: string | undefined;
     ask({
       title: t("Generate a token?"),
       body: (
@@ -244,6 +243,7 @@ export function KeysAccessSection() {
       confirmLabel: s("Generate token"),
       busyLabel: t("Saving…"),
       run: async () => {
+        let failure: string | undefined;
         // `act` keeps the card's busy flag, message and reload as they were.
         await act(async () => {
           try {
@@ -290,7 +290,6 @@ export function KeysAccessSection() {
 
   /** Asks first, with one sentence and no secret. The card's own feedback stays. */
   const savePassword = (clear: boolean) => {
-    let failure: string | undefined;
     ask({
       title: t(clear ? "Clear the browser password?" : "Save the browser password?"),
       body: (
@@ -306,6 +305,7 @@ export function KeysAccessSection() {
       busyLabel: t("Saving…"),
       destructive: clear,
       run: async () => {
+        let failure: string | undefined;
         await act(async () => {
           if (!snapshot) return;
           try {
