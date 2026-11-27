@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.5.0](https://github.com/cmdaltctr/omms/compare/v7.4.0...v7.5.0) (2026-11-27)
+
+
+### Features
+
+* confirm every settings save and job action before sending ([ac6ae4c](https://github.com/cmdaltctr/omms/commit/ac6ae4c64fa5fb5b66eabf19748a6ac0d24b4e79))
+* confirm every settings save and job action before sending ([d23be9b](https://github.com/cmdaltctr/omms/commit/d23be9b8079a4ef29205415dc498e0897b5bba4e))
+
+
+### Bug Fixes
+
+* address review findings on settings confirm dialogs ([971469e](https://github.com/cmdaltctr/omms/commit/971469e55da87b99cb52728400fa93e5257c7420))
+
 ## [7.4.0](https://github.com/cmdaltctr/omms/compare/v7.3.2...v7.4.0) (2026-11-27)
 
 
